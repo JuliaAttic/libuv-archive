@@ -758,9 +758,9 @@ void uv_process_close(uv_loop_t* loop, uv_process_t* handle) {
 static int uv_create_stdio_pipe_pair(uv_loop_t* loop, uv_pipe_t* server_pipe,
     HANDLE* child_pipe,  DWORD server_access, DWORD child_access,
     int overlapped) {
-  int err;
+  int err=0;
   SECURITY_ATTRIBUTES sa = { sizeof(SECURITY_ATTRIBUTES), NULL, TRUE };
-  char pipe_name[64];
+  char *pipe_name = (server_pipe->name!=0)?server_pipe->name:(server_pipe->name=malloc(64*sizeof(char)));
   DWORD mode = PIPE_TYPE_BYTE | PIPE_READMODE_BYTE | PIPE_WAIT;
 
   if (server_pipe->type != UV_NAMED_PIPE) {
@@ -771,10 +771,11 @@ static int uv_create_stdio_pipe_pair(uv_loop_t* loop, uv_pipe_t* server_pipe,
 
   /* Create server pipe handle. */
   err = uv_stdio_pipe_server(loop,
-                             server_pipe,
-                             server_access,
-                             pipe_name,
-                             sizeof(pipe_name));
+                                 server_pipe,
+                                 server_access,
+                                 pipe_name,
+                                 64);
+
   if (err) {
     goto done;
   }
@@ -946,7 +947,21 @@ int uv_spawn(uv_loop_t* loop, uv_process_t* process,
 
   /* Create stdio pipes. */
   if (options.stdin_stream) {
-    if (options.stdin_stream->ipc) {
+      if(options.stdin_stream->handle) {
+          //server already created
+          if (!DuplicateHandle(GetCurrentProcess(),
+                               options.stdin_stream->handle,
+                               GetCurrentProcess(),
+                               &child_stdio[0],
+                               0,
+                               TRUE,
+                               DUPLICATE_SAME_ACCESS)) {
+            child_stdio[0] = INVALID_HANDLE_VALUE;
+            uv__set_sys_error(loop, GetLastError());
+            return -1;
+          }
+      }
+    else if (options.stdin_stream->ipc) {
       err = uv_create_stdio_pipe_pair(
           loop,
           options.stdin_stream,
@@ -971,12 +986,27 @@ int uv_spawn(uv_loop_t* loop, uv_process_t* process,
   }
 
   if (options.stdout_stream) {
+      if(options.stdout_stream->handle) {
+          //server already created
+          if (!DuplicateHandle(GetCurrentProcess(),
+                               options.stdout_stream->handle,
+                               GetCurrentProcess(),
+                               &child_stdio[1],
+                               0,
+                               TRUE,
+                               DUPLICATE_SAME_ACCESS)) {
+            child_stdio[0] = INVALID_HANDLE_VALUE;
+            uv__set_sys_error(loop, GetLastError());
+            return -1;
+          }
+      } else {
     err = uv_create_stdio_pipe_pair(
         loop, options.stdout_stream,
         &child_stdio[1],
         PIPE_ACCESS_INBOUND,
         GENERIC_WRITE,
         0);
+      }
   } else if (!options.detached) {
     err = duplicate_std_handle(loop, STD_OUTPUT_HANDLE, &child_stdio[1]);
   }

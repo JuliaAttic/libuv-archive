@@ -136,7 +136,11 @@ typedef int (WSAAPI* LPFN_WSARECVFROM)
  */
 typedef struct uv_buf_t {
   ULONG len;
+#ifdef __cplusplus
+  const char *base;
+#else
   char* base;
+#endif
 } uv_buf_t;
 
 typedef int uv_file;
