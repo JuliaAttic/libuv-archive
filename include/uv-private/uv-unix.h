@@ -38,7 +38,11 @@
 
 /* Note: May be cast to struct iovec. See writev(2). */
 typedef struct {
+#ifndef __cplusplus
   char* base;
+#else
+  const char *base;
+#endif
   size_t len;
 } uv_buf_t;
 
