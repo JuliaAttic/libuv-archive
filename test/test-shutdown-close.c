@@ -19,67 +19,82 @@
  * IN THE SOFTWARE.
  */
 
+/*
+ * These tests verify that the uv_shutdown callback is always made, even when
+ * it is immediately followed by an uv_close call.
+ */
+
 #include "uv.h"
 #include "task.h"
 
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
 
-#define CHECK_HANDLE(handle) \
-  ASSERT((uv_udp_t*)(handle) == &server || (uv_udp_t*)(handle) == &client)
+static uv_shutdown_t shutdown_req;
+static uv_connect_t connect_req;
 
-static uv_udp_t server;
-static uv_udp_t client;
+static int connect_cb_called = 0;
+static int shutdown_cb_called = 0;
+static int close_cb_called = 0;
 
-static int sv_send_cb_called;
-static int close_cb_called;
+
+static void shutdown_cb(uv_shutdown_t* req, int status) {
+  ASSERT(req == &shutdown_req);
+  ASSERT(status == 0 ||
+         (status == -1 && uv_last_error(uv_default_loop()).code == UV_EINTR));
+  shutdown_cb_called++;
+}
 
 
 static void close_cb(uv_handle_t* handle) {
-  CHECK_HANDLE(handle);
   close_cb_called++;
 }
 
 
-static void sv_send_cb(uv_udp_send_t* req, int status) {
-  ASSERT(req != NULL);
+static void connect_cb(uv_connect_t* req, int status) {
+  int r;
+
+  ASSERT(req == &connect_req);
   ASSERT(status == 0);
-  CHECK_HANDLE(req->handle);
 
-  sv_send_cb_called++;
-
+  r = uv_shutdown(&shutdown_req, req->handle, shutdown_cb);
+  ASSERT(r == 0);
   uv_close((uv_handle_t*) req->handle, close_cb);
+
+  connect_cb_called++;
 }
 
 
-TEST_IMPL(udp_multicast_ttl) {
+TEST_IMPL(shutdown_close_tcp) {
+  struct sockaddr_in addr = uv_ip4_addr("127.0.0.1", TEST_PORT);
+  uv_tcp_t h;
   int r;
-  uv_udp_send_t req;
-  uv_buf_t buf;
-  struct sockaddr_in addr = uv_ip4_addr("239.255.0.1", TEST_PORT);
 
-  r = uv_udp_init(uv_default_loop(), &server);
+  r = uv_tcp_init(uv_default_loop(), &h);
+  ASSERT(r == 0);
+  r = uv_tcp_connect(&connect_req, &h, addr, connect_cb);
+  ASSERT(r == 0);
+  r = uv_run(uv_default_loop());
   ASSERT(r == 0);
 
-  r = uv_udp_bind(&server, uv_ip4_addr("0.0.0.0", 0), 0);
+  ASSERT(connect_cb_called == 1);
+  ASSERT(shutdown_cb_called == 1);
+  ASSERT(close_cb_called == 1);
+
+  return 0;
+}
+
+
+TEST_IMPL(shutdown_close_pipe) {
+  uv_pipe_t h;
+  int r;
+
+  r = uv_pipe_init(uv_default_loop(), &h, 0);
+  ASSERT(r == 0);
+  uv_pipe_connect(&connect_req, &h, TEST_PIPENAME, connect_cb);
+  r = uv_run(uv_default_loop());
   ASSERT(r == 0);
 
-  r = uv_udp_set_multicast_ttl(&server, 32);
-  ASSERT(r == 0);
-
-  /* server sends "PING" */
-  buf = uv_buf_init("PING", 4);
-  r = uv_udp_send(&req, &server, &buf, 1, addr, sv_send_cb);
-  ASSERT(r == 0);
-
-  ASSERT(close_cb_called == 0);
-  ASSERT(sv_send_cb_called == 0);
-
-  /* run the loop till all events are processed */
-  uv_run(uv_default_loop());
-
-  ASSERT(sv_send_cb_called == 1);
+  ASSERT(connect_cb_called == 1);
+  ASSERT(shutdown_cb_called == 1);
   ASSERT(close_cb_called == 1);
 
   return 0;

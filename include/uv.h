@@ -80,7 +80,7 @@ typedef intptr_t ssize_t;
   XX(  7, EAFNOSUPPORT, "") \
   XX(  8, EALREADY, "") \
   XX(  9, EBADF, "bad file descriptor") \
-  XX( 10, EBUSY, "mount device busy") \
+  XX( 10, EBUSY, "resource busy or locked") \
   XX( 11, ECONNABORTED, "software caused connection abort") \
   XX( 12, ECONNREFUSED, "connection refused") \
   XX( 13, ECONNRESET, "connection reset by peer") \
@@ -120,7 +120,9 @@ typedef intptr_t ssize_t;
   XX( 49, ENAMETOOLONG, "name too long") \
   XX( 50, EPERM, "operation not permitted") \
   XX( 51, ELOOP, "too many symbolic links encountered") \
-  XX( 52, EXDEV, "cross-device link not permitted")
+  XX( 52, EXDEV, "cross-device link not permitted") \
+  XX( 53, ENOTEMPTY, "directory not empty") \
+  XX( 54, ENOSPC, "no space left on device")
 
 
 #define UV_ERRNO_GEN(val, name, s) UV_##name = val,
@@ -1387,7 +1389,7 @@ UV_EXTERN extern uint64_t uv_hrtime(void);
 
 
 /*
- * Opens a shared library. The filename is in utf-8. On success, -1 is
+ * Opens a shared library. The filename is in utf-8. On success, -1 is returned
  * and the variable pointed by library receives a handle to the library.
  */
 UV_EXTERN uv_err_t uv_dlopen(const char* filename, uv_lib_t* library);
@@ -1481,8 +1483,8 @@ struct uv_counters_s {
 
 struct uv_loop_s {
   UV_LOOP_PRIVATE_FIELDS
-  /* list used for ares task handles */
-  uv_ares_task_t* uv_ares_handles_;
+  /* RB_HEAD(uv__ares_tasks, uv_ares_task_t) */
+  struct uv__ares_tasks { uv_ares_task_t* rbh_root; } uv_ares_handles_;
   /* Various thing for libeio. */
   uv_async_t uv_eio_want_poll_notifier;
   uv_async_t uv_eio_done_poll_notifier;
