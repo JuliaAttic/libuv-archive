@@ -224,6 +224,8 @@ UV_EXTERN uv_loop_t* uv_default_loop(void);
  */
 UV_EXTERN int uv_run (uv_loop_t*);
 
+UV_EXTERN void uv_break_one (uv_loop_t*);
+
 /*
  * This function polls for new events without blocking.
  */

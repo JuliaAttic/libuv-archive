@@ -181,6 +181,8 @@ RB_HEAD(uv_timer_tree_s, uv_timer_s);
   HANDLE iocp;                                                                \
   /* Reference count that keeps the event loop alive */                       \
   int refs;                                                                   \
+  /* Indicates whether to break after this event */                           \
+  int break_status;                                                           \
   /* The current time according to the event loop. in msecs. */               \
   int64_t time;                                                               \
   /* Tail of a single-linked circular queue of pending reqs. If the queue */  \

@@ -215,6 +215,10 @@ int uv_run_once(uv_loop_t* loop) {
   return 0;
 }
 
+void uv_break_one(uv_loop_t* loop)
+{
+    ev_break(loop->ev,EVBREAK_ONE);
+}
 
 void uv__handle_init(uv_loop_t* loop, uv_handle_t* handle,
     uv_handle_type type) {

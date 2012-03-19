@@ -90,6 +90,8 @@ static void uv_loop_init(uv_loop_t* loop) {
   loop->active_tcp_streams = 0;
   loop->active_udp_streams = 0;
 
+  loop->break_status = 0;
+
   loop->last_err = uv_ok_;
 }
 
@@ -228,7 +230,7 @@ static void uv_poll_ex(uv_loop_t* loop, int block) {
     uv_process_reqs((loop));                                                  \
     uv_process_endgames((loop));                                              \
                                                                               \
-    if ((loop)->refs <= 0) {                                                  \
+    if ((loop)->refs <= 0&&!loop->break_status) {                             \
       break;                                                                  \
     }                                                                         \
                                                                               \
@@ -243,7 +245,7 @@ static void uv_poll_ex(uv_loop_t* loop, int block) {
   } while (0);
 
 #define UV_LOOP(loop, poll)                                                   \
-  while ((loop)->refs > 0) {                                                  \
+  while ((loop)->refs > 0&&!loop->break_status) {                             \
     UV_LOOP_ONCE(loop, poll)                                                  \
   }
 
@@ -264,7 +266,12 @@ int uv_run(uv_loop_t* loop) {
   } else {
     UV_LOOP(loop, uv_poll);
   }
-
-  assert(loop->refs == 0);
+  loop->break_status=0;
+  //assert(loop->refs == 0);
   return 0;
+}
+
+void uv_loop_break_one(uv_loop_t *loop)
+{
+    loop->break_status=1;
 }
