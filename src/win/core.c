@@ -271,7 +271,7 @@ int uv_run(uv_loop_t* loop) {
   return 0;
 }
 
-void uv_loop_break_one(uv_loop_t *loop)
+void uv_break_one(uv_loop_t *loop)
 {
     loop->break_status=1;
 }

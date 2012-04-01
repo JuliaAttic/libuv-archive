@@ -983,6 +983,7 @@ int uv_spawn(uv_loop_t* loop, uv_process_t* process,
         PIPE_ACCESS_INBOUND,
         GENERIC_WRITE,
         0);
+      }
   } else {
     err = duplicate_std_handle(loop, STD_OUTPUT_HANDLE, &child_stdio[1]);
   }
