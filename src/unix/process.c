@@ -185,19 +185,34 @@ int uv_spawn(uv_loop_t* loop, uv_process_t* process,
 
   process->exit_cb = options.exit_cb;
 
-  if (options.stdin_stream &&
-      uv__process_init_pipe(options.stdin_stream, stdin_pipe, 0)) {
-    goto error;
+  if (options.stdin_stream) {
+      if(options.stdin_stream->fd<0) {
+          if(uv__process_init_pipe(options.stdin_stream, stdin_pipe, 0)!=0)
+            goto error;
+      } else {
+          stdin_pipe[0]=-1;
+          stdin_pipe[1]=options.stdin_stream->fd;
+      }
   }
 
-  if (options.stdout_stream &&
-      uv__process_init_pipe(options.stdout_stream, stdout_pipe, 0)) {
-    goto error;
+  if (options.stdout_stream) {
+      if(options.stdout_stream->fd<0) {
+        if(uv__process_init_pipe(options.stdout_stream, stdout_pipe, 0)!=0)
+            goto error;
+      } else {
+          stdout_pipe[0]=options.stdout_stream->fd;
+          stdout_pipe[1]=-1;
+      }
   }
 
-  if (options.stderr_stream &&
-      uv__process_init_pipe(options.stderr_stream, stderr_pipe, 0)) {
-    goto error;
+  if (options.stderr_stream) {
+      if(options.stderr_stream->fd<0) {
+        if(uv__process_init_pipe(options.stderr_stream, stderr_pipe, 0)!=0)
+          goto error;
+      } else {
+          stderr_pipe[0]=options.stderr_stream->fd;
+          stderr_pipe[1]=-1;
+      }
   }
 
   /* This pipe is used by the parent to wait until
@@ -305,8 +320,8 @@ int uv_spawn(uv_loop_t* loop, uv_process_t* process,
 
   if (stdin_pipe[1] >= 0) {
     assert(options.stdin_stream);
-    assert(stdin_pipe[0] >= 0);
-    uv__close(stdin_pipe[0]);
+    if(stdin_pipe[0] >= 0)
+        uv__close(stdin_pipe[0]);
     uv__nonblock(stdin_pipe[1], 1);
     flags = UV_WRITABLE | (options.stdin_stream->ipc ? UV_READABLE : 0);
     uv__stream_open((uv_stream_t*)options.stdin_stream, stdin_pipe[1],
@@ -315,8 +330,8 @@ int uv_spawn(uv_loop_t* loop, uv_process_t* process,
 
   if (stdout_pipe[0] >= 0) {
     assert(options.stdout_stream);
-    assert(stdout_pipe[1] >= 0);
-    uv__close(stdout_pipe[1]);
+    if(stdout_pipe[1] >= 0)
+        uv__close(stdout_pipe[1]);
     uv__nonblock(stdout_pipe[0], 1);
     flags = UV_READABLE | (options.stdout_stream->ipc ? UV_WRITABLE : 0);
     uv__stream_open((uv_stream_t*)options.stdout_stream, stdout_pipe[0],
@@ -325,8 +340,8 @@ int uv_spawn(uv_loop_t* loop, uv_process_t* process,
 
   if (stderr_pipe[0] >= 0) {
     assert(options.stderr_stream);
-    assert(stderr_pipe[1] >= 0);
-    uv__close(stderr_pipe[1]);
+    if(stderr_pipe[1] >= 0)
+        uv__close(stderr_pipe[1]);
     uv__nonblock(stderr_pipe[0], 1);
     flags = UV_READABLE | (options.stderr_stream->ipc ? UV_WRITABLE : 0);
     uv__stream_open((uv_stream_t*)options.stderr_stream, stderr_pipe[0],
