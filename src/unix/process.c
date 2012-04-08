@@ -190,8 +190,8 @@ int uv_spawn(uv_loop_t* loop, uv_process_t* process,
           if(uv__process_init_pipe(options.stdin_stream, stdin_pipe, 0)!=0)
             goto error;
       } else {
-          stdin_pipe[0]=-1;
-          stdin_pipe[1]=options.stdin_stream->fd;
+          stdin_pipe[1]=-1;
+          stdin_pipe[0]=options.stdin_stream->fd;
       }
   }
 
@@ -200,8 +200,8 @@ int uv_spawn(uv_loop_t* loop, uv_process_t* process,
         if(uv__process_init_pipe(options.stdout_stream, stdout_pipe, 0)!=0)
             goto error;
       } else {
-          stdout_pipe[0]=options.stdout_stream->fd;
-          stdout_pipe[1]=-1;
+          stdout_pipe[1]=options.stdout_stream->fd;
+          stdout_pipe[0]=-1;
       }
   }
 
@@ -210,8 +210,8 @@ int uv_spawn(uv_loop_t* loop, uv_process_t* process,
         if(uv__process_init_pipe(options.stderr_stream, stderr_pipe, 0)!=0)
           goto error;
       } else {
-          stderr_pipe[0]=options.stderr_stream->fd;
-          stderr_pipe[1]=-1;
+          stderr_pipe[1]=options.stderr_stream->fd;
+          stderr_pipe[0]=-1;
       }
   }
 
