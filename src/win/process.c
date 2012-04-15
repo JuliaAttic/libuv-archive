@@ -924,7 +924,7 @@ int uv_spawn(uv_loop_t* loop, uv_process_t* process,
 
   /* Create stdio pipes. */
   if (options.stdin_stream) {
-      if(options.stdin_stream->handle) {
+      if(options.stdin_stream->handle!=INVALID_HANDLE_VALUE) {
           //server already created
           if (!DuplicateHandle(GetCurrentProcess(),
                                options.stdin_stream->handle,
@@ -963,7 +963,7 @@ int uv_spawn(uv_loop_t* loop, uv_process_t* process,
   }
 
   if (options.stdout_stream) {
-      if(options.stdout_stream->handle) {
+      if(options.stdout_stream->handle!=INVALID_HANDLE_VALUE) {
           //server already created
           if (!DuplicateHandle(GetCurrentProcess(),
                                options.stdout_stream->handle,
