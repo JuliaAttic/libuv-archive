@@ -24,8 +24,11 @@ TEST_DECLARE   (tty)
 TEST_DECLARE   (stdio_over_pipes)
 TEST_DECLARE   (ipc_listen_before_write)
 TEST_DECLARE   (ipc_listen_after_write)
+#ifndef _WIN32
 TEST_DECLARE   (ipc_send_recv_pipe)
+#endif
 TEST_DECLARE   (ipc_send_recv_tcp)
+TEST_DECLARE   (ipc_tcp_connection)
 TEST_DECLARE   (tcp_ping_pong)
 TEST_DECLARE   (tcp_ping_pong_v6)
 TEST_DECLARE   (pipe_ping_pong)
@@ -138,6 +141,8 @@ TEST_DECLARE   (fs_event_watch_file)
 TEST_DECLARE   (fs_event_watch_file_current_dir)
 TEST_DECLARE   (fs_event_no_callback_on_close)
 TEST_DECLARE   (fs_event_immediate_close)
+TEST_DECLARE   (fs_event_close_with_pending_event)
+TEST_DECLARE   (fs_event_close_in_callback);
 TEST_DECLARE   (fs_readdir_empty_dir)
 TEST_DECLARE   (fs_readdir_file)
 TEST_DECLARE   (fs_open_dir)
@@ -176,8 +181,11 @@ TASK_LIST_START
   TEST_ENTRY  (stdio_over_pipes)
   TEST_ENTRY  (ipc_listen_before_write)
   TEST_ENTRY  (ipc_listen_after_write)
+#ifndef _WIN32
   TEST_ENTRY  (ipc_send_recv_pipe)
+#endif
   TEST_ENTRY  (ipc_send_recv_tcp)
+  TEST_ENTRY  (ipc_tcp_connection)
 
   TEST_ENTRY  (tcp_ping_pong)
   TEST_HELPER (tcp_ping_pong, tcp4_echo_server)
@@ -339,6 +347,8 @@ TASK_LIST_START
   TEST_ENTRY  (fs_event_watch_file_current_dir)
   TEST_ENTRY  (fs_event_no_callback_on_close)
   TEST_ENTRY  (fs_event_immediate_close)
+  TEST_ENTRY  (fs_event_close_with_pending_event)
+  TEST_ENTRY  (fs_event_close_in_callback)
   TEST_ENTRY  (fs_readdir_empty_dir)
   TEST_ENTRY  (fs_readdir_file)
   TEST_ENTRY  (fs_open_dir)

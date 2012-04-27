@@ -93,6 +93,8 @@ static void uv_loop_init(uv_loop_t* loop) {
   loop->break_status = 0;
 
   loop->last_err = uv_ok_;
+
+  memset(&loop->counters, 0, sizeof loop->counters);
 }
 
 

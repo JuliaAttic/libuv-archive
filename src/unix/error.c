@@ -68,12 +68,16 @@ uv_err_code uv_translate_sys_error(int sys_errno) {
     case EBADF: return UV_EBADF;
     case EPIPE: return UV_EPIPE;
     case EAGAIN: return UV_EAGAIN;
+#if EWOULDBLOCK != EAGAIN
+    case EWOULDBLOCK: return UV_EAGAIN;
+#endif
     case ECONNRESET: return UV_ECONNRESET;
     case EFAULT: return UV_EFAULT;
     case EMFILE: return UV_EMFILE;
     case EMSGSIZE: return UV_EMSGSIZE;
     case ENAMETOOLONG: return UV_ENAMETOOLONG;
     case EINVAL: return UV_EINVAL;
+    case ENETUNREACH: return UV_ENETUNREACH;
     case ECONNABORTED: return UV_ECONNABORTED;
     case ELOOP: return UV_ELOOP;
     case ECONNREFUSED: return UV_ECONNREFUSED;
@@ -91,6 +95,7 @@ uv_err_code uv_translate_sys_error(int sys_errno) {
     case EBUSY: return UV_EBUSY;
     case ENOTEMPTY: return UV_ENOTEMPTY;
     case ENOSPC: return UV_ENOSPC;
+    case EROFS: return UV_EROFS;
     default: return UV_UNKNOWN;
   }
   UNREACHABLE();

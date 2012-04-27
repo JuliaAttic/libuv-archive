@@ -34,7 +34,7 @@
 # include <TargetConditionals.h>
 #endif
 
-#if defined(__APPLE__) && !defined(TARGET_OS_IPHONE)
+#if defined(__APPLE__) && !TARGET_OS_IPHONE
 # include <crt_externs.h>
 # define environ (*_NSGetEnviron())
 #else
@@ -105,7 +105,7 @@ int uv__make_socketpair(int fds[2], int flags) {
 
 
 int uv__make_pipe(int fds[2], int flags) {
-#if HAVE_SYS_PIPE2
+#if __linux__
   int fl;
 
   fl = O_CLOEXEC;
@@ -113,17 +113,11 @@ int uv__make_pipe(int fds[2], int flags) {
   if (flags & UV__F_NONBLOCK)
     fl |= O_NONBLOCK;
 
-  if (sys_pipe2(fds, fl) == 0)
+  if (uv__pipe2(fds, fl) == 0)
     return 0;
 
   if (errno != ENOSYS)
     return -1;
-
-  /* errno == ENOSYS so maybe the kernel headers lied about
-   * the availability of pipe2(). This can happen if people
-   * build libuv against newer kernel headers than the kernel
-   * they actually run the software on.
-   */
 #endif
 
   if (pipe(fds))
@@ -244,8 +238,8 @@ int uv_spawn(uv_loop_t* loop, uv_process_t* process,
 
   if (pid == -1) {
 #if SPAWN_WAIT_EXEC
-    uv__close(signal_pipe[0]);
-    uv__close(signal_pipe[1]);
+    close(signal_pipe[0]);
+    close(signal_pipe[1]);
 #endif
     environ = save_our_env;
     goto error;
@@ -253,7 +247,7 @@ int uv_spawn(uv_loop_t* loop, uv_process_t* process,
 
   if (pid == 0) {
     if (stdin_pipe[0] >= 0) {
-      uv__close(stdin_pipe[1]);
+      close(stdin_pipe[1]);
       dup2(stdin_pipe[0],  STDIN_FILENO);
     } else {
       /* Reset flags that might be set by Node */
@@ -262,7 +256,7 @@ int uv_spawn(uv_loop_t* loop, uv_process_t* process,
     }
 
     if (stdout_pipe[1] >= 0) {
-      uv__close(stdout_pipe[0]);
+      close(stdout_pipe[0]);
       dup2(stdout_pipe[1], STDOUT_FILENO);
     } else {
       /* Reset flags that might be set by Node */
@@ -271,7 +265,7 @@ int uv_spawn(uv_loop_t* loop, uv_process_t* process,
     }
 
     if (stderr_pipe[1] >= 0) {
-      uv__close(stderr_pipe[0]);
+      close(stderr_pipe[0]);
       dup2(stderr_pipe[1], STDERR_FILENO);
     } else {
       /* Reset flags that might be set by Node */
@@ -299,7 +293,7 @@ int uv_spawn(uv_loop_t* loop, uv_process_t* process,
 
 #if SPAWN_WAIT_EXEC
   /* POLLHUP signals child has exited or execve()'d. */
-  uv__close(signal_pipe[1]);
+  close(signal_pipe[1]);
   do {
     pfd.fd = signal_pipe[0];
     pfd.events = POLLIN|POLLHUP;
@@ -309,7 +303,7 @@ int uv_spawn(uv_loop_t* loop, uv_process_t* process,
   while (status == -1 && (errno == EINTR || errno == ENOMEM));
 
   assert((status == 1) && "poll() on pipe read end failed");
-  uv__close(signal_pipe[0]);
+  close(signal_pipe[0]);
 #endif
 
   process->pid = pid;
@@ -321,7 +315,7 @@ int uv_spawn(uv_loop_t* loop, uv_process_t* process,
   if (stdin_pipe[1] >= 0) {
     assert(options.stdin_stream);
     if(stdin_pipe[0] >= 0)
-        uv__close(stdin_pipe[0]);
+        close(stdin_pipe[0]);
     uv__nonblock(stdin_pipe[1], 1);
     flags = UV_WRITABLE | (options.stdin_stream->ipc ? UV_READABLE : 0);
     uv__stream_open((uv_stream_t*)options.stdin_stream, stdin_pipe[1],
@@ -331,7 +325,7 @@ int uv_spawn(uv_loop_t* loop, uv_process_t* process,
   if (stdout_pipe[0] >= 0) {
     assert(options.stdout_stream);
     if(stdout_pipe[1] >= 0)
-        uv__close(stdout_pipe[1]);
+        close(stdout_pipe[1]);
     uv__nonblock(stdout_pipe[0], 1);
     flags = UV_READABLE | (options.stdout_stream->ipc ? UV_WRITABLE : 0);
     uv__stream_open((uv_stream_t*)options.stdout_stream, stdout_pipe[0],
@@ -341,7 +335,7 @@ int uv_spawn(uv_loop_t* loop, uv_process_t* process,
   if (stderr_pipe[0] >= 0) {
     assert(options.stderr_stream);
     if(stderr_pipe[1] >= 0)
-        uv__close(stderr_pipe[1]);
+        close(stderr_pipe[1]);
     uv__nonblock(stderr_pipe[0], 1);
     flags = UV_READABLE | (options.stderr_stream->ipc ? UV_WRITABLE : 0);
     uv__stream_open((uv_stream_t*)options.stderr_stream, stderr_pipe[0],
@@ -352,12 +346,12 @@ int uv_spawn(uv_loop_t* loop, uv_process_t* process,
 
 error:
   uv__set_sys_error(process->loop, errno);
-  uv__close(stdin_pipe[0]);
-  uv__close(stdin_pipe[1]);
-  uv__close(stdout_pipe[0]);
-  uv__close(stdout_pipe[1]);
-  uv__close(stderr_pipe[0]);
-  uv__close(stderr_pipe[1]);
+  close(stdin_pipe[0]);
+  close(stdin_pipe[1]);
+  close(stdout_pipe[0]);
+  close(stdout_pipe[1]);
+  close(stderr_pipe[0]);
+  close(stderr_pipe[1]);
   return -1;
 }
 
@@ -382,4 +376,9 @@ uv_err_t uv_kill(int pid, int signum) {
   } else {
     return uv_ok_;
   }
+}
+
+
+void uv__process_close(uv_process_t* handle) {
+  ev_child_stop(handle->loop->ev, &handle->child_watcher);
 }

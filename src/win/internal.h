@@ -68,11 +68,12 @@ void uv_process_timers(uv_loop_t* loop);
 #define UV_HANDLE_NON_OVERLAPPED_PIPE           0x00200000
 #define UV_HANDLE_TTY_SAVED_POSITION            0x00400000
 #define UV_HANDLE_TTY_SAVED_ATTRIBUTES          0x00800000
-#define UV_HANDLE_SHARED_TCP_SERVER             0x01000000
+#define UV_HANDLE_SHARED_TCP_SOCKET             0x01000000
 #define UV_HANDLE_TCP_NODELAY                   0x02000000
 #define UV_HANDLE_TCP_KEEPALIVE                 0x04000000
 #define UV_HANDLE_TCP_SINGLE_ACCEPT             0x08000000
 #define UV_HANDLE_TCP_ACCEPT_STATE_CHANGING     0x10000000
+#define UV_HANDLE_TCP_SOCKET_CLOSED             0x20000000
 
 void uv_want_endgame(uv_loop_t* loop, uv_handle_t* handle);
 void uv_process_endgames(uv_loop_t* loop);
@@ -143,10 +144,13 @@ void uv_process_tcp_connect_req(uv_loop_t* loop, uv_tcp_t* handle,
 
 void uv_tcp_endgame(uv_loop_t* loop, uv_tcp_t* handle);
 
-int uv_tcp_import(uv_tcp_t* tcp, WSAPROTOCOL_INFOW* socket_protocol_info);
+int uv_tcp_import(uv_tcp_t* tcp, WSAPROTOCOL_INFOW* socket_protocol_info,
+    int tcp_connection);
 
 int uv_tcp_duplicate_socket(uv_tcp_t* handle, int pid,
     LPWSAPROTOCOL_INFOW protocol_info);
+
+void uv_tcp_close(uv_tcp_t* tcp);
 
 
 /*
@@ -277,7 +281,8 @@ void uv_process_work_req(uv_loop_t* loop, uv_work_t* req);
 /*
  * FS Event
  */
-void uv_process_fs_event_req(uv_loop_t* loop, uv_req_t* req, uv_fs_event_t* handle);
+void uv_process_fs_event_req(uv_loop_t* loop, uv_req_t* req,
+    uv_fs_event_t* handle);
 void uv_fs_event_close(uv_loop_t* loop, uv_fs_event_t* handle);
 void uv_fs_event_endgame(uv_loop_t* loop, uv_fs_event_t* handle);
 

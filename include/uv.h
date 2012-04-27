@@ -57,8 +57,10 @@ extern "C" {
 
 #include "ares.h"
 
-#ifndef _SSIZE_T_
-typedef intptr_t ssize_t;
+#if !defined(_SSIZE_T_) && !defined(_SSIZE_T_DEFINED)
+  typedef intptr_t ssize_t;
+# define _SSIZE_T_
+# define _SSIZE_T_DEFINED
 #endif
 
 #if defined(__unix__) || defined(__POSIX__) || defined(__APPLE__)
@@ -122,7 +124,9 @@ typedef intptr_t ssize_t;
   XX( 51, ELOOP, "too many symbolic links encountered") \
   XX( 52, EXDEV, "cross-device link not permitted") \
   XX( 53, ENOTEMPTY, "directory not empty") \
-  XX( 54, ENOSPC, "no space left on device")
+  XX( 54, ENOSPC, "no space left on device") \
+  XX( 55, EIO, "i/o error") \
+  XX( 56, EROFS, "read-only file system" )
 
 
 #define UV_ERRNO_GEN(val, name, s) UV_##name = val,
@@ -132,37 +136,46 @@ typedef enum {
 } uv_err_code;
 #undef UV_ERRNO_GEN
 
+#define UV_HANDLE_TYPE_MAP(XX)  \
+  XX(ARES_TASK, ares_task)      \
+  XX(ASYNC, async)              \
+  XX(CHECK, check)              \
+  XX(FS_EVENT, fs_event)        \
+  XX(IDLE, idle)                \
+  XX(NAMED_PIPE, pipe)          \
+  XX(PREPARE, prepare)          \
+  XX(PROCESS, process)          \
+  XX(TCP, tcp)                  \
+  XX(TIMER, timer)              \
+  XX(TTY, tty)                  \
+  XX(UDP, udp)                  \
+
+#define UV_REQ_TYPE_MAP(XX)     \
+  XX(CONNECT, connect)          \
+  XX(WRITE, write)              \
+  XX(SHUTDOWN, shutdown)        \
+  XX(UDP_SEND, udp_send)        \
+  XX(FS, fs)                    \
+  XX(WORK, work)                \
+  XX(GETADDRINFO, getaddrinfo)  \
+
 typedef enum {
   UV_UNKNOWN_HANDLE = 0,
-  UV_TCP,
-  UV_UDP,
-  UV_NAMED_PIPE,
-  UV_TTY,
+#define XX(uc, lc) UV_##uc,
+  UV_HANDLE_TYPE_MAP(XX)
+#undef XX
   UV_FILE,
-  UV_TIMER,
-  UV_PREPARE,
-  UV_CHECK,
-  UV_IDLE,
-  UV_ASYNC,
-  UV_ARES_TASK,
-  UV_ARES_EVENT,
-  UV_PROCESS,
-  UV_FS_EVENT
+  UV_HANDLE_TYPE_PRIVATE
+  UV_HANDLE_TYPE_MAX
 } uv_handle_type;
 
 typedef enum {
   UV_UNKNOWN_REQ = 0,
-  UV_CONNECT,
-  UV_ACCEPT,
-  UV_READ,
-  UV_WRITE,
-  UV_SHUTDOWN,
-  UV_WAKEUP,
-  UV_UDP_SEND,
-  UV_FS,
-  UV_WORK,
-  UV_GETADDRINFO,
+#define XX(uc, lc) UV_##uc,
+  UV_REQ_TYPE_MAP(XX)
+#undef XX
   UV_REQ_TYPE_PRIVATE
+  UV_REQ_TYPE_MAX
 } uv_req_type;
 
 
@@ -376,10 +389,22 @@ struct uv_handle_s {
 };
 
 /*
+ * Returns size of various handle types, useful for FFI
+ * bindings to allocate correct memory without copying struct
+ * definitions
+ */
+UV_EXTERN size_t uv_handle_size(uv_handle_type type);
+
+/*
+ * Returns size of request types, useful for dynamic lookup with FFI
+ */
+UV_EXTERN size_t uv_req_size(uv_req_type type);
+
+/*
  * Returns 1 if the prepare/check/idle/timer handle has been started, 0
  * otherwise. For other handle types this always returns 1.
  */
-UV_EXTERN int uv_is_active(uv_handle_t* handle);
+UV_EXTERN int uv_is_active(const uv_handle_t* handle);
 
 /*
  * Request handle to be closed. close_cb will be called asynchronously after
@@ -497,6 +522,13 @@ UV_EXTERN int uv_read2_start(uv_stream_t*, uv_alloc_cb alloc_cb,
 UV_EXTERN int uv_write(uv_write_t* req, uv_stream_t* handle,
     uv_buf_t bufs[], int bufcnt, uv_write_cb cb);
 
+/*
+ * Extended write function for sending handles over a pipe. The pipe must be
+ * initialized with ipc == 1.
+ * send_handle must be a TCP socket or pipe, which is a server or a connection
+ * (listening or connected state).  Bound sockets or pipes will be assumed to
+ * be servers.
+ */
 UV_EXTERN int uv_write2(uv_write_t* req, uv_stream_t* handle, uv_buf_t bufs[],
     int bufcnt, uv_stream_t* send_handle, uv_write_cb cb);
 
@@ -512,10 +544,19 @@ struct uv_write_s {
 
 /*
  * Used to determine whether a stream is readable or writable.
- * TODO: export in v0.8.
  */
-/* UV_EXTERN */ int uv_is_readable(uv_stream_t* handle);
-/* UV_EXTERN */ int uv_is_writable(uv_stream_t* handle);
+UV_EXTERN int uv_is_readable(const uv_stream_t* handle);
+UV_EXTERN int uv_is_writable(const uv_stream_t* handle);
+
+
+/*
+ * Used to determine whether a stream is closing or closed.
+ *
+ * N.B. is only valid between the initialization of the handle
+ *      and the arrival of the close callback, and cannot be used
+ *      to validate the handle.
+ */
+UV_EXTERN int uv_is_closing(const uv_handle_t* handle);
 
 
 /*
@@ -1022,7 +1063,7 @@ UV_EXTERN void uv_ares_destroy(uv_loop_t*, ares_channel channel);
 struct uv_getaddrinfo_s {
   UV_REQ_FIELDS
   /* read-only */
-  uv_loop_t* loop; \
+  uv_loop_t* loop;
   UV_GETADDRINFO_PRIVATE_FIELDS
 };
 
@@ -1232,13 +1273,13 @@ UV_EXTERN int uv_fs_open(uv_loop_t* loop, uv_fs_t* req, const char* path,
     int flags, int mode, uv_fs_cb cb);
 
 UV_EXTERN int uv_fs_read(uv_loop_t* loop, uv_fs_t* req, uv_file file,
-    void* buf, size_t length, off_t offset, uv_fs_cb cb);
+    void* buf, size_t length, int64_t offset, uv_fs_cb cb);
 
 UV_EXTERN int uv_fs_unlink(uv_loop_t* loop, uv_fs_t* req, const char* path,
     uv_fs_cb cb);
 
 UV_EXTERN int uv_fs_write(uv_loop_t* loop, uv_fs_t* req, uv_file file,
-    void* buf, size_t length, off_t offset, uv_fs_cb cb);
+    void* buf, size_t length, int64_t offset, uv_fs_cb cb);
 
 UV_EXTERN int uv_fs_mkdir(uv_loop_t* loop, uv_fs_t* req, const char* path,
     int mode, uv_fs_cb cb);
@@ -1265,10 +1306,10 @@ UV_EXTERN int uv_fs_fdatasync(uv_loop_t* loop, uv_fs_t* req, uv_file file,
     uv_fs_cb cb);
 
 UV_EXTERN int uv_fs_ftruncate(uv_loop_t* loop, uv_fs_t* req, uv_file file,
-    off_t offset, uv_fs_cb cb);
+    int64_t offset, uv_fs_cb cb);
 
 UV_EXTERN int uv_fs_sendfile(uv_loop_t* loop, uv_fs_t* req, uv_file out_fd,
-    uv_file in_fd, off_t in_offset, size_t length, uv_fs_cb cb);
+    uv_file in_fd, int64_t in_offset, size_t length, uv_fs_cb cb);
 
 UV_EXTERN int uv_fs_chmod(uv_loop_t* loop, uv_fs_t* req, const char* path,
     int mode, uv_fs_cb cb);
@@ -1487,10 +1528,6 @@ struct uv_loop_s {
   UV_LOOP_PRIVATE_FIELDS
   /* RB_HEAD(uv__ares_tasks, uv_ares_task_t) */
   struct uv__ares_tasks { uv_ares_task_t* rbh_root; } uv_ares_handles_;
-  /* Various thing for libeio. */
-  uv_async_t uv_eio_want_poll_notifier;
-  uv_async_t uv_eio_done_poll_notifier;
-  uv_idle_t uv_eio_poller;
   /* Diagnostic counters */
   uv_counters_t counters;
   /* The last error */
@@ -1501,6 +1538,7 @@ struct uv_loop_s {
 
 
 /* Don't export the private CPP symbols. */
+#undef UV_HANDLE_TYPE_PRIVATE
 #undef UV_REQ_TYPE_PRIVATE
 #undef UV_REQ_PRIVATE_FIELDS
 #undef UV_STREAM_PRIVATE_FIELDS
