@@ -591,10 +591,10 @@ void fs__ftruncate(uv_fs_t* req, uv_file file, int64_t offset) {
                                     sizeof eof_info,
                                     FileEndOfFileInformation);
   
-  if (status == STATUS_SUCCES) {
+  if (nt_status == STATUS_SUCCESS) {
     SET_REQ_RESULT(req, 0);
   } else {
-    SET_REQ_WIN32_ERROR(req, pRtlNtStatusToDosError(status));
+    SET_REQ_WIN32_ERROR(req, pRtlNtStatusToDosError(nt_status));
   }
 }
 
