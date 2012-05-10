@@ -33,8 +33,14 @@
 #include <netinet/tcp.h>
 #include <arpa/inet.h>
 #include <netdb.h>
+#include <pwd.h>
 #include <termios.h>
 #include <pthread.h>
+
+#if __sun
+# include <sys/port.h>
+# include <port.h>
+#endif
 
 /* Note: May be cast to struct iovec. See writev(2). */
 typedef struct {
@@ -48,6 +54,8 @@ typedef struct {
 
 typedef int uv_file;
 
+typedef int uv_os_sock_t;
+
 #define UV_ONCE_INIT PTHREAD_ONCE_INIT
 
 typedef pthread_once_t uv_once_t;
@@ -55,9 +63,16 @@ typedef pthread_t uv_thread_t;
 typedef pthread_mutex_t uv_mutex_t;
 typedef pthread_rwlock_t uv_rwlock_t;
 
+/* Platform-specific definitions for uv_spawn support. */
+typedef gid_t uv_gid_t;
+typedef uid_t uv_uid_t;
+
 /* Platform-specific definitions for uv_dlopen support. */
-typedef void* uv_lib_t;
 #define UV_DYNAMIC /* empty */
+typedef struct {
+  void* handle;
+  char* errmsg;
+} uv_lib_t;
 
 #define UV_HANDLE_TYPE_PRIVATE /* empty */
 #define UV_REQ_TYPE_PRIVATE /* empty */
@@ -70,6 +85,10 @@ typedef void* uv_lib_t;
   } inotify_watchers;                                 \
   ev_io inotify_read_watcher;                         \
   int inotify_fd;
+#elif defined(PORT_SOURCE_FILE)
+# define UV_LOOP_PRIVATE_PLATFORM_FIELDS              \
+  ev_io fs_event_watcher;                             \
+  int fs_fd;
 #else
 # define UV_LOOP_PRIVATE_PLATFORM_FIELDS
 #endif
@@ -161,6 +180,11 @@ typedef void* uv_lib_t;
   const char* pipe_fname; /* strdup'ed */
 
 
+/* UV_POLL */
+#define UV_POLL_PRIVATE_FIELDS        \
+  ev_io io_watcher;
+
+
 /* UV_PREPARE */ \
 #define UV_PREPARE_PRIVATE_FIELDS \
   ev_prepare prepare_watcher; \
@@ -237,9 +261,6 @@ typedef void* uv_lib_t;
   int fflags; \
 
 #elif defined(__sun)
-
-#include <sys/port.h>
-#include <port.h>
 
 #ifdef PORT_SOURCE_FILE
 # define UV_FS_EVENT_PRIVATE_FIELDS \

@@ -224,10 +224,8 @@ void fs__open(uv_fs_t* req, const wchar_t* path, int flags, int mode) {
     goto end;
   }
 
-  /* Figure out whether path is a file or a directory. */
-  if (GetFileAttributesW(path) & FILE_ATTRIBUTE_DIRECTORY) {
-    attributes |= FILE_FLAG_BACKUP_SEMANTICS;
-  }
+  /* Setting this flag makes it possible to open a directory. */
+  attributes |= FILE_FLAG_BACKUP_SEMANTICS;
 
   file = CreateFileW(path,
                      access,
@@ -573,12 +571,28 @@ void fs__fsync(uv_fs_t* req, uv_file file) {
 
 
 void fs__ftruncate(uv_fs_t* req, uv_file file, int64_t offset) {
-  int result;
+  HANDLE handle;
+  NTSTATUS status;
+  IO_STATUS_BLOCK io_status;
+  FILE_END_OF_FILE_INFORMATION eof_info;
 
   VERIFY_UV_FILE(file, req);
 
-  result = _chsize_s(file, offset);
-  SET_REQ_RESULT(req, result);
+  handle = (HANDLE)_get_osfhandle(file);
+
+  eof_info.EndOfFile.QuadPart = offset;
+
+  status = pNtSetInformationFile(handle,
+                                 &io_status,
+                                 &eof_info,
+                                 sizeof eof_info,
+                                 FileEndOfFileInformation);
+
+  if (NT_SUCCESS(status)) {
+    SET_REQ_RESULT(req, 0);
+  } else {
+    SET_REQ_WIN32_ERROR(req, pRtlNtStatusToDosError(status));
+  }
 }
 
 
