@@ -1289,7 +1289,12 @@ void uv_tcp_close(uv_tcp_t* tcp) {
   tcp->flags &= ~(UV_HANDLE_READING | UV_HANDLE_LISTENING);
 
   if (close_socket) {
-    closesocket(tcp->socket);
+      LPFN_DISCONNECTEX fnDisconnectEx = NULL;
+      GUID gufn = WSAID_DISCONNECTEX;
+      DWORD dwBytes;
+      WSAIoctl(tcp->socket, SIO_GET_EXTENSION_FUNCTION_POINTER, &gufn, sizeof(gufn), &fnDisconnectEx, sizeof(fnDisconnectEx), &dwBytes, NULL, NULL);
+      fnDisconnectEx(tcp->socket, NULL, 0, 0);
+      closesocket(tcp->socket);
     tcp->flags |= UV_HANDLE_TCP_SOCKET_CLOSED;
   }
 
