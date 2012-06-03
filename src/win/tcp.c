@@ -280,6 +280,7 @@ static int uv__bind(uv_tcp_t* handle,
     }
   }
 
+  handle->flags &= !UV_HANDLE_BIND_ERROR;
   handle->flags |= UV_HANDLE_BOUND;
 
   return 0;
