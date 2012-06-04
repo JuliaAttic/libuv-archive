@@ -32,8 +32,13 @@
 #include <sys/stat.h>
 
 #include "tree.h"
+#include "ngx-queue.h"
 
 #define MAX_PIPENAME_LEN 256
+
+#ifndef S_IFLNK
+# define S_IFLNK          0xA000
+#endif
 
 /*
  * Guids and typedefs for winsock extension functions
@@ -168,6 +173,8 @@ typedef SOCKET uv_os_sock_t;
 
 typedef HANDLE uv_thread_t;
 
+typedef HANDLE uv_sem_t;
+
 typedef CRITICAL_SECTION uv_mutex_t;
 
 typedef union {
@@ -207,8 +214,6 @@ RB_HEAD(uv_timer_tree_s, uv_timer_s);
 #define UV_LOOP_PRIVATE_FIELDS                                                \
     /* The loop's I/O completion port */                                      \
   HANDLE iocp;                                                                \
-  /* Reference count that keeps the event loop alive */                       \
-  int refs;                                                                   \
   /* Indicates whether to break after this event */                           \
   int break_status;                                                           \
   /* The current time according to the event loop. in msecs. */               \
@@ -234,25 +239,15 @@ RB_HEAD(uv_timer_tree_s, uv_timer_s);
   uv_idle_t* next_idle_handle;                                                \
   /* This handle holds the peer sockets for the fast variant of uv_poll_t */  \
   SOCKET poll_peer_sockets[UV_MSAFD_PROVIDER_COUNT];                          \
-  /* State used by uv_ares. */                                                \
-  ares_channel ares_chan;                                                     \
-  int ares_active_sockets;                                                    \
-  uv_timer_t ares_polling_timer;                                              \
   /* Counter to keep track of active tcp streams */                           \
   unsigned int active_tcp_streams;                                            \
   /* Counter to keep track of active udp streams */                           \
   unsigned int active_udp_streams;
 
-#define UV_HANDLE_TYPE_PRIVATE            \
-  UV_ARES_EVENT,
-
 #define UV_REQ_TYPE_PRIVATE               \
   /* TODO: remove the req suffix */       \
   UV_ACCEPT,                              \
-  UV_ARES_EVENT_REQ,                      \
-  UV_ARES_CLEANUP_REQ,                    \
   UV_FS_EVENT_REQ,                        \
-  UV_GETADDRINFO_REQ,                     \
   UV_POLL_REQ,                            \
   UV_PROCESS_EXIT,                        \
   UV_PROCESS_CLOSE,                       \
@@ -316,6 +311,7 @@ RB_HEAD(uv_timer_tree_s, uv_timer_s);
 
 #define UV_STREAM_PRIVATE_FIELDS          \
   unsigned int reqs_pending;              \
+  int activecnt;                          \
   uv_read_t read_req;                     \
   union {                                 \
     struct { uv_stream_connection_fields };  \
@@ -343,6 +339,7 @@ RB_HEAD(uv_timer_tree_s, uv_timer_s);
 #define UV_UDP_PRIVATE_FIELDS             \
   SOCKET socket;                          \
   unsigned int reqs_pending;              \
+  int activecnt;                          \
   uv_req_t recv_req;                      \
   uv_buf_t recv_buffer;                   \
   struct sockaddr_storage recv_from;      \
@@ -450,7 +447,6 @@ RB_HEAD(uv_timer_tree_s, uv_timer_s);
   unsigned int flags;
 
 #define UV_GETADDRINFO_PRIVATE_FIELDS     \
-  struct uv_req_s getadddrinfo_req;       \
   uv_getaddrinfo_cb getaddrinfo_cb;       \
   void* alloc;                            \
   wchar_t* node;                          \
@@ -466,7 +462,7 @@ RB_HEAD(uv_timer_tree_s, uv_timer_s);
   struct uv_process_close_s {             \
     UV_REQ_FIELDS                         \
   } close_req;                            \
-  HANDLE child_stdio[3];                  \
+  void* child_stdio_buffer;               \
   int exit_signal;                        \
   DWORD spawn_errno;                      \
   HANDLE wait_handle;                     \

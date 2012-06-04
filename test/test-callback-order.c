@@ -19,7 +19,58 @@
  * IN THE SOFTWARE.
  */
 
-#include <assert.h>
-
 #include "uv.h"
-#include "internal.h"
+#include "task.h"
+
+static int idle_cb_called;
+static int timer_cb_called;
+
+static uv_idle_t idle_handle;
+static uv_timer_t timer_handle;
+
+
+/* idle_cb should run before timer_cb */
+static void idle_cb(uv_idle_t* handle, int status) {
+  ASSERT(idle_cb_called == 0);
+  ASSERT(timer_cb_called == 0);
+  uv_idle_stop(handle);
+  idle_cb_called++;
+}
+
+
+static void timer_cb(uv_timer_t* handle, int status) {
+  ASSERT(idle_cb_called == 1);
+  ASSERT(timer_cb_called == 0);
+  uv_timer_stop(handle);
+  timer_cb_called++;
+}
+
+
+static void next_tick(uv_idle_t* handle, int status) {
+  uv_loop_t* loop = handle->loop;
+  uv_idle_stop(handle);
+  uv_idle_init(loop, &idle_handle);
+  uv_idle_start(&idle_handle, idle_cb);
+  uv_timer_init(loop, &timer_handle);
+  uv_timer_start(&timer_handle, timer_cb, 0, 0);
+}
+
+
+TEST_IMPL(callback_order) {
+  uv_loop_t* loop;
+  uv_idle_t idle;
+
+  loop = uv_default_loop();
+  uv_idle_init(loop, &idle);
+  uv_idle_start(&idle, next_tick);
+
+  ASSERT(idle_cb_called == 0);
+  ASSERT(timer_cb_called == 0);
+
+  uv_run(loop);
+
+  ASSERT(idle_cb_called == 1);
+  ASSERT(timer_cb_called == 1);
+
+  return 0;
+}

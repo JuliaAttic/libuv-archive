@@ -189,6 +189,7 @@ int uv_fs_event_init(uv_loop_t* loop,
   }
 
   uv__handle_init(loop, (uv_handle_t*)handle, UV_FS_EVENT);
+  uv__handle_start(handle); /* FIXME shouldn't start automatically */
   handle->filename = strdup(filename);
   handle->fd = PORT_UNUSED;
   handle->cb = cb;
@@ -200,7 +201,6 @@ int uv_fs_event_init(uv_loop_t* loop,
   if (first_run) {
     ev_io_init(&loop->fs_event_watcher, uv__fs_event_read, portfd, EV_READ);
     ev_io_start(loop->ev, &loop->fs_event_watcher);
-    ev_unref(loop->ev);
   }
 
   return 0;
