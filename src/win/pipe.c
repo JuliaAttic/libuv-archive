@@ -94,6 +94,13 @@ int uv_pipe_init(uv_loop_t* loop, uv_pipe_t* handle, int ipc) {
   return 0;
 }
 
+int uv_os_pipe_init(uv_os_pipe_t *pipe)
+{
+    pipe->read = INVALID_HANDLE_VALUE;
+    pipe->write = INVALID_HANDLE_VALUE;
+    return 0;
+}
+
 
 static void uv_pipe_connection_init(uv_pipe_t* handle) {
   uv_connection_init((uv_stream_t*) handle);
@@ -1673,9 +1680,4 @@ void uv_pipe_open(uv_pipe_t* pipe, uv_file file) {
     pipe->ipc_pid = uv_parent_pid();
     assert(pipe->ipc_pid != -1);
   }
-}
-
-void uv_pipe_create_pair(uv_pipe_t *in, uv_pipe_t *out)
-{
-
 }

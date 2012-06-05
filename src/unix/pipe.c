@@ -42,6 +42,13 @@ int uv_pipe_init(uv_loop_t* loop, uv_pipe_t* handle, int ipc) {
   return 0;
 }
 
+int uv_os_pipe_init(uv_os_pipe_t *pipe)
+{
+    pipe->read = -1;
+    pipe->write = -1;
+    return 0;
+}
+
 
 int uv_pipe_bind(uv_pipe_t* handle, const char* name) {
   struct sockaddr_un saddr;
