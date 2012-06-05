@@ -927,6 +927,11 @@ typedef struct uv_os_pipe_s {
 UV_EXTERN int uv_pipe_init(uv_loop_t*, uv_pipe_t* handle, int ipc);
 
 /*
+ * Initialize a lazily allocated thin wrapper around a native pipe
+ */
+UV_EXTERN int uv_os_pipe_init(uv_os_pipe_t *pipe);
+
+/*
  * Opens an existing file descriptor or HANDLE as a pipe.
  */
 UV_EXTERN void uv_pipe_open(uv_pipe_t*, uv_file file);
