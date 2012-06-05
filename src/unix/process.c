@@ -158,9 +158,12 @@ static int uv__process_init_stdio(uv_stdio_container_t* container, int fds[2],
     case UV_NATIVE_PIPE:
       assert(container->data.stream != NULL);
 
-      if(uv__make_pipe(container->data.pipe, 0) == -1)
+      if(uv__make_pipe(*(int**)container->data.pipe, 0) == -1)
           return -1;
-      fds[writable ? 1 : 0] =*(container->data.pipe)[writable ? 1 : 0];
+      if (writable)
+          fds[1] = container->data.pipe->write;
+      else
+          fds[0] = container->data.pipe->read;
 
       return 0;
     case UV_INHERIT_FD:
