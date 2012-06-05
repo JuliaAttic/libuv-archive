@@ -171,6 +171,8 @@ typedef int uv_file;
 
 typedef SOCKET uv_os_sock_t;
 
+typedef HANDLE uv_os_fd_t;
+
 typedef HANDLE uv_thread_t;
 
 typedef HANDLE uv_sem_t;

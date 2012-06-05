@@ -1001,7 +1001,7 @@ static int init_child_stdio(uv_loop_t* loop, uv_process_options_t* options,
     }
 
     switch (fdopt.flags & (UV_IGNORE | UV_CREATE_PIPE | UV_INHERIT_FD |
-            UV_INHERIT_STREAM)) {
+            UV_INHERIT_STREAM | UV_NATIVE_PIPE)) {
       case UV_IGNORE:
         /* Starting a process with no stdin/stout/stderr can confuse it. */
         /* So no matter what the user specified, we make sure the first */
@@ -1043,6 +1043,34 @@ static int init_child_stdio(uv_loop_t* loop, uv_process_options_t* options,
 
         CHILD_STDIO_HANDLE(buffer, i) = child_pipe;
         CHILD_STDIO_CRT_FLAGS(buffer, i) = FOPEN | FPIPE;
+        break;
+      }
+
+      case UV_NATIVE_PIPE: {
+        /* Create a pair of two connected pipe ends (or use already */
+        /* created ones), but do not turn either into an uv_pipe_t */
+        uv_os_pipe_t *os_pipe = (uv_os_pipe_t*) fdopt.data.stream;
+        HANDLE child_handle;
+
+        /* Simple pipes must not be duplex */
+        assert(!(fdopt.data.stream->flags & (UV_READABLE_PIPE|UV_WRITABLE_PIPE)));
+        assert(os_pipe != NULL);
+
+        if(os_pipe->write==INVALID_HANDLE_VALUE) {
+            assert(os_pipe->read==INVALID_HANDLE_VALUE);
+            CreatePipe(&(os_pipe->read),&(os_pipe->write),NULL,65536);
+        }
+
+        child_handle = (fdopt.flags&UV_READABLE_PIPE)?os_pipe->read:os_pipe->write;
+
+        /* Make an inheritable duplicate of the handle. */
+        if (duplicate_handle(loop, child_handle, &child_handle) < 0) {
+          goto error;
+        }
+
+        CHILD_STDIO_CRT_FLAGS(buffer, i) = FOPEN | FPIPE;
+        CHILD_STDIO_HANDLE(buffer, i) = child_handle;
+
         break;
       }
 

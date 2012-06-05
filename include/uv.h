@@ -915,6 +915,11 @@ struct uv_pipe_s {
   int ipc; /* non-zero if this pipe is used for passing handles */
 };
 
+typedef struct uv_os_pipe_s {
+    uv_os_fd_t read;
+    uv_os_fd_t write;
+} uv_os_pipe_t;
+
 /*
  * Initialize a pipe. The last argument is a boolean to indicate if
  * this pipe will be used for handle passing between processes.
@@ -1171,6 +1176,7 @@ typedef enum {
   UV_CREATE_PIPE    = 0x01,
   UV_INHERIT_FD     = 0x02,
   UV_INHERIT_STREAM = 0x04,
+  UV_NATIVE_PIPE    = 0x08,
 
   /* When UV_CREATE_PIPE is specified, UV_READABLE_PIPE and UV_WRITABLE_PIPE
    * determine the direction of flow, from the child process' perspective. Both
@@ -1180,13 +1186,15 @@ typedef enum {
   UV_WRITABLE_PIPE  = 0x20
 } uv_stdio_flags;
 
+typedef union {
+  uv_stream_t* stream;
+  uv_os_pipe_t* pipe;
+  int fd;
+} uv_stdio_data;
+
 typedef struct uv_stdio_container_s {
   uv_stdio_flags flags;
-
-  union {
-    uv_stream_t* stream;
-    int fd;
-  } data;
+  uv_stdio_data data;
 } uv_stdio_container_t;
 
 typedef struct uv_process_options_s {

@@ -143,7 +143,7 @@ static int uv__process_init_stdio(uv_stdio_container_t* container, int fds[2],
                                   int writable) {
   int fd = -1;
   switch (container->flags & (UV_IGNORE | UV_CREATE_PIPE | UV_INHERIT_FD |
-                              UV_INHERIT_STREAM)) {
+                              UV_INHERIT_STREAM | UV_NATIVE_PIPE)) {
     case UV_IGNORE:
       return 0;
     case UV_CREATE_PIPE:
@@ -155,6 +155,14 @@ static int uv__process_init_stdio(uv_stdio_container_t* container, int fds[2],
       }
 
       return uv__make_socketpair(fds, 0);
+    case UV_NATIVE_PIPE:
+      assert(container->data.stream != NULL);
+
+      if(uv__make_pipe(container->data.pipe, 0) == -1)
+          return -1;
+      fds[writable ? 1 : 0] =*(container->data.pipe)[writable ? 1 : 0];
+
+      return 0;
     case UV_INHERIT_FD:
     case UV_INHERIT_STREAM:
       if (container->flags & UV_INHERIT_FD) {

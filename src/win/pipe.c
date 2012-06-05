@@ -1674,3 +1674,8 @@ void uv_pipe_open(uv_pipe_t* pipe, uv_file file) {
     assert(pipe->ipc_pid != -1);
   }
 }
+
+void uv_pipe_create_pair(uv_pipe_t *in, uv_pipe_t *out)
+{
+
+}
