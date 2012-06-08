@@ -116,23 +116,32 @@ TEST_IMPL(stdio_over_pipes) {
   int r;
   uv_process_t process;
   uv_stdio_container_t stdio[2];
+  uv_pipe_t child_pipes[2];
 
   loop = uv_default_loop();
 
   init_process_options("stdio_over_pipes_helper", exit_cb);
 
-  uv_pipe_init(loop, &out, 0);
-  uv_pipe_init(loop, &in, 0);
+  uv_pipe_init(loop, &out, UV_PIPE_READABLE);
+  uv_pipe_init(loop, &in, UV_PIPE_WRITEABLE);
+  uv_pipe_init(loop, &child_pipes[0], UV_PIPE_SPAWN_SAFE|UV_PIPE_READABLE);
+  uv_pipe_init(loop, &child_pipes[1], UV_PIPE_SPAWN_SAFE|UV_PIPE_WRITEABLE);
+
+  uv_pipe_link(&child_pipes[0],&in);
+  uv_pipe_link(&out,&child_pipes[1]);
 
   options.stdio = stdio;
-  options.stdio[0].flags = UV_CREATE_PIPE | UV_READABLE_PIPE;
-  options.stdio[0].data.stream = (uv_stream_t*)&in;
-  options.stdio[1].flags = UV_CREATE_PIPE | UV_WRITABLE_PIPE;
-  options.stdio[1].data.stream = (uv_stream_t*)&out;
+  options.stdio[0].type = UV_STREAM;
+  options.stdio[0].data.stream = (uv_stream_t*)&child_pipes[0];
+  options.stdio[1].type = UV_STREAM;
+  options.stdio[1].data.stream = (uv_stream_t*)&child_pipes[1];
   options.stdio_count = 2;
 
   r = uv_spawn(loop, &process, options);
   ASSERT(r == 0);
+
+  uv_pipe_close_sync(&child_pipes[0]);
+  uv_pipe_close_sync(&child_pipes[1]);
 
   r = uv_read_start((uv_stream_t*) &out, on_alloc, on_read);
   ASSERT(r == 0);

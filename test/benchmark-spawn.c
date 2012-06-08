@@ -102,6 +102,7 @@ void on_read(uv_stream_t* pipe, ssize_t nread, uv_buf_t buf) {
 
 static void spawn() {
   uv_stdio_container_t stdio[2];
+  uv_pipe_t child_stdout;
   int r;
 
   ASSERT(process_open == 0);
@@ -114,16 +115,21 @@ static void spawn() {
   options.args = args;
   options.exit_cb = exit_cb;
 
-  uv_pipe_init(loop, &out, 0);
+  uv_pipe_init(loop, &out, UV_PIPE_READABLE);
+  uv_pipe_init(loop, &child_stdout, UV_PIPE_SPAWN_SAFE|UV_PIPE_WRITEABLE);
+  uv_pipe_link(&out,&child_stdout);
 
   options.stdio = stdio;
   options.stdio_count = 2;
-  options.stdio[0].flags = UV_IGNORE;
-  options.stdio[1].flags = UV_CREATE_PIPE | UV_WRITABLE_PIPE;
-  options.stdio[1].data.stream = (uv_stream_t*)&out;
+  options.stdio[0].type = UV_STREAM;
+  options.stdio[0].data.stream = NULL;
+  options.stdio[1].type = UV_STREAM;
+  options.stdio[1].data.stream = (uv_stream_t*)&child_stdout;
 
   r = uv_spawn(loop, &process, options);
   ASSERT(r == 0);
+
+  uv_pipe_close_sync(&child_stdout);
 
   process_open = 1;
   pipe_open = 1;
