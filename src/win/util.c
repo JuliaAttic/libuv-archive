@@ -33,6 +33,7 @@
 #include <iphlpapi.h>
 #include <psapi.h>
 #include <tlhelp32.h>
+#include <limits.h>
 
 
 /*
