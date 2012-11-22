@@ -395,12 +395,12 @@ struct uv_shutdown_s {
 
 
 #define UV_HANDLE_FIELDS                                                      \
-  /* public */                                                                \
-  uv_close_cb close_cb;                                                       \
-  void* data;                                                                 \
   /* read-only */                                                             \
   uv_loop_t* loop;                                                            \
   uv_handle_type type;                                                        \
+  /* public */                                                                \
+  uv_close_cb close_cb;                                                       \
+  void* data;                                                                 \
   /* private */                                                               \
   ngx_queue_t handle_queue;                                                   \
   UV_HANDLE_PRIVATE_FIELDS                                                    \
