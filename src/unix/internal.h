@@ -137,7 +137,9 @@ enum {
   UV_TCP_NODELAY          = 0x400,  /* Disable Nagle. */
   UV_TCP_KEEPALIVE        = 0x800,  /* Turn on keep-alive. */
   UV_TCP_SINGLE_ACCEPT    = 0x1000, /* Only accept() when idle. */
-  UV_HANDLE_IPV6          = 0x2000  /* Handle is bound to a IPv6 socket. */
+  UV_HANDLE_IPV6          = 0x2000, /* Handle is bound to a IPv6 socket. */
+  UV__PIPE_IPC            = 0x400,
+  UV__PIPE_SPAWN_SAFE     = 0x800,
 };
 
 typedef enum {
@@ -238,6 +240,7 @@ void uv__tcp_close(uv_tcp_t* handle);
 void uv__timer_close(uv_timer_t* handle);
 void uv__udp_close(uv_udp_t* handle);
 void uv__udp_finish_close(uv_udp_t* handle);
+void uv__finish_close(uv_handle_t* handle);
 uv_handle_type uv__handle_type(int fd);
 
 #if defined(__APPLE__)
@@ -253,7 +256,6 @@ int uv___stream_fd(const uv_stream_t* handle);
 # define UV__F_NONBLOCK 1
 #endif
 
-int uv__make_socketpair(int fds[2], int flags);
 int uv__make_pipe(int fds[2], int flags);
 
 #if defined(__APPLE__)
