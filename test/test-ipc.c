@@ -279,10 +279,16 @@ void spawn_helper(uv_pipe_t* channel,
   char* args[3];
   int r;
   uv_stdio_container_t stdio[1];
+  uv_pipe_t child_channel;
 
-  r = uv_pipe_init(uv_default_loop(), channel, 1);
+  r = uv_pipe_init(uv_default_loop(), channel,
+	  UV_PIPE_READABLE|UV_PIPE_WRITEABLE|UV_PIPE_IPC);
   ASSERT(r == 0);
-  ASSERT(channel->ipc);
+  r = uv_pipe_init(uv_default_loop(), &child_channel,
+	  UV_PIPE_READABLE|UV_PIPE_WRITEABLE);
+  ASSERT(r == 0);
+  r = uv_pipe_link(&child_channel,channel);
+  ASSERT(r == 0);
 
   exepath_size = sizeof(exepath);
   r = uv_exepath(exepath, &exepath_size);
@@ -299,13 +305,14 @@ void spawn_helper(uv_pipe_t* channel,
   options.exit_cb = exit_cb;
 
   options.stdio = stdio;
-  options.stdio[0].flags = UV_CREATE_PIPE |
-    UV_READABLE_PIPE | UV_WRITABLE_PIPE;
-  options.stdio[0].data.stream = (uv_stream_t*)channel;
+  options.stdio[0].type = UV_STREAM;
+  options.stdio[0].data.stream = (uv_stream_t*)&child_channel;
   options.stdio_count = 1;
 
   r = uv_spawn(uv_default_loop(), process, &options);
   ASSERT(r == 0);
+
+  uv_pipe_close_sync(&child_channel);
 }
 
 

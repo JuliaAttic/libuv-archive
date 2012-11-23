@@ -30,12 +30,16 @@
 #include <stdlib.h>
 
 
-int uv_pipe_init(uv_loop_t* loop, uv_pipe_t* handle, int ipc) {
+int uv_pipe_init(uv_loop_t* loop, uv_pipe_t* handle, int flags) {
   uv__stream_init(loop, (uv_stream_t*)handle, UV_NAMED_PIPE);
   handle->shutdown_req = NULL;
   handle->connect_req = NULL;
   handle->pipe_fname = NULL;
-  handle->ipc = ipc;
+    
+  handle->flags |= ((flags&UV_PIPE_IPC)?UV__PIPE_IPC:0)|
+          ((flags&UV_PIPE_SPAWN_SAFE)?UV__PIPE_SPAWN_SAFE:0)|
+          ((flags&UV_PIPE_READABLE)?UV_STREAM_READABLE:0)|
+          ((flags&UV_PIPE_WRITEABLE)?UV_STREAM_WRITABLE:0);
   return 0;
 }
 
@@ -92,6 +96,74 @@ err_socket:
   return err;
 }
 
+int uv_pipe_link(uv_pipe_t *read, uv_pipe_t *write) {
+  int err;
+  int fds[2];
+
+  assert(read->loop==write->loop);
+  assert(read->flags&UV_STREAM_READABLE);
+  assert(write->flags&UV_STREAM_WRITABLE);
+  assert(!(write->flags&read->flags&UV__PIPE_IPC));
+
+#ifdef SOCK_NONBLOCK
+  int fl;
+
+  fl = SOCK_CLOEXEC;
+
+  if (~((read->flags|write->flags)&UV_PIPE_SPAWN_SAFE)) {
+    if (socketpair(AF_UNIX, SOCK_STREAM|SOCK_NONBLOCK|fl, 0, fds) == 0)
+        goto open_fds;
+
+    if (errno != EINVAL)
+      goto pipe_error;
+    /* errno == EINVAL so maybe the kernel headers lied about
+     * the availability of SOCK_NONBLOCK. This can happen if people
+     * build libuv against newer kernel headers than the kernel
+     * they actually run the software on.
+     */
+  }
+#endif
+
+  if (socketpair(AF_UNIX, SOCK_STREAM, 0, fds))
+    goto pipe_error;
+
+  uv__cloexec(fds[0], 1);
+  uv__cloexec(fds[1], 1);
+
+  if (~(read->flags & UV_PIPE_SPAWN_SAFE))
+    uv__nonblock(fds[0], 1);
+  if (~(write->flags & UV_PIPE_SPAWN_SAFE))
+    uv__nonblock(fds[1], 1);
+
+open_fds: 
+  
+  err = uv__stream_open((uv_stream_t*)read, fds[0], 0);
+  if (err) {
+      close(fds[0]);
+      close(fds[1]);
+      goto pipe_error;
+  }
+
+  err = uv__stream_open((uv_stream_t*)write, fds[1], 0);
+  if (err) {
+      uv_pipe_close_sync(read);
+      close(fds[0]);
+      close(fds[1]);
+      goto pipe_error;
+  }
+
+  return 0;
+  
+pipe_error:
+  return -1;
+}
+
+void uv_pipe_close_sync(uv_pipe_t *pipe) {
+    uv__stream_close((uv_stream_t*)pipe); /* TODO: ??? */
+    pipe->close_cb=0;
+    pipe->flags |= UV_CLOSING;
+    uv__finish_close((uv_handle_t*)pipe);
+}
 
 int uv_pipe_listen(uv_pipe_t* handle, int backlog, uv_connection_cb cb) {
   if (uv__stream_fd(handle) == -1)
@@ -263,7 +335,7 @@ void uv_pipe_pending_instances(uv_pipe_t* handle, int count) {
 int uv_pipe_pending_count(uv_pipe_t* handle) {
   uv__stream_queued_fds_t* queued_fds;
 
-  if (!handle->ipc)
+  if (!handle->flags&UV__PIPE_IPC)
     return 0;
 
   if (handle->accepted_fd == -1)
@@ -278,7 +350,7 @@ int uv_pipe_pending_count(uv_pipe_t* handle) {
 
 
 uv_handle_type uv_pipe_pending_type(uv_pipe_t* handle) {
-  if (!handle->ipc)
+  if (!handle->flags&UV__PIPE_IPC)
     return UV_UNKNOWN_HANDLE;
 
   if (handle->accepted_fd == -1)

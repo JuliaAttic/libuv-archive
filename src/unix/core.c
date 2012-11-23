@@ -200,7 +200,7 @@ void uv__make_close_pending(uv_handle_t* handle) {
 }
 
 
-static void uv__finish_close(uv_handle_t* handle) {
+void uv__finish_close(uv_handle_t* handle) {
   /* Note: while the handle is in the UV_CLOSING state now, it's still possible
    * for it to be active in the sense that uv__is_active() returns true.
    * A good example is when the user calls uv_shutdown(), immediately followed
