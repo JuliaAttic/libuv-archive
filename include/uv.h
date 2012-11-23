@@ -182,7 +182,9 @@ typedef enum {
   UV_HANDLE_TYPE_MAP(XX)
 #undef XX
   UV_FILE,
-  UV_HANDLE_TYPE_MAX
+  UV_HANDLE_TYPE_MAX,
+  UV_RAW_FD, /* fd for both unix and windows */
+  UV_RAW_HANDLE /* HANDLE on windows, same as UV_RAW_FD on unix */
 } uv_handle_type;
 
 typedef enum {
@@ -260,13 +262,13 @@ UV_EXTERN int uv_loop_close(uv_loop_t* loop);
 /*
  * NOTE:
  *  This function is DEPRECATED (to be removed after 0.12), users should
- *  allocate the loop manually and use uv_loop_init instead.
+ * allocate the loop manually and use uv_loop_init instead.
  */
 UV_EXTERN uv_loop_t* uv_loop_new(void);
 /*
  * NOTE:
  *  This function is DEPRECATED (to be removed after 0.12). Users should use
- *  uv_loop_close and free the memory manually instead.
+ * uv_loop_close and free the memory manually instead.
  */
 UV_EXTERN void uv_loop_delete(uv_loop_t*);
 UV_EXTERN size_t uv_loop_size(void);
@@ -412,7 +414,7 @@ struct uv_shutdown_s {
   } u;                                                                        \
   UV_HANDLE_PRIVATE_FIELDS                                                    \
 
-/* The abstract base class of all handles. */
+/* The abstract base class of all handles.  */
 struct uv_handle_s {
   UV_HANDLE_FIELDS
 };
@@ -675,15 +677,43 @@ UV_EXTERN uv_handle_type uv_guess_handle(uv_file file);
  *
  * Representing a pipe stream or pipe server. On Windows this is a Named
  * Pipe. On Unix this is a Unix domain socket.
+ *
+ * A single uv_pipe_t always represents one end of a pipe. You can use
+ * uv_pipe_link to create a pair of connected pipe ends.
  */
 struct uv_pipe_s {
   UV_HANDLE_FIELDS
   UV_STREAM_FIELDS
-  int ipc; /* non-zero if this pipe is used for passing handles */
   UV_PIPE_PRIVATE_FIELDS
 };
 
-UV_EXTERN int uv_pipe_init(uv_loop_t*, uv_pipe_t* handle, int ipc);
+enum uv_pipe_flags {
+	UV_PIPE_IPC			 = 0x01,
+	UV_PIPE_SPAWN_SAFE	 = 0x02,
+	UV_PIPE_READABLE	 = 0x04,
+	UV_PIPE_WRITEABLE	 = 0x08
+};
+/*
+ * Initialize a pipe. The last argument is a boolean to indicate if
+ * this pipe will be used for handle passing between processes.
+ */
+UV_EXTERN int uv_pipe_init(uv_loop_t*, uv_pipe_t* handle, int flags);
+
+/*
+ * Creates a pipe and assigns the two pipe ends to the given uv_pipe_t's
+ */
+UV_EXTERN int uv_pipe_link(uv_pipe_t *read, uv_pipe_t *write);
+
+/*
+ * Attempt to synchronously close the given pipe. This will only work if the pipe is
+ * inactive (i.e. not reading, writing listening, connecting, etc. Otherwise this function 
+ * will abort()
+ */
+UV_EXTERN void uv_pipe_close_sync(uv_pipe_t *pipe);
+
+/*
+ * Opens an existing file descriptor or HANDLE as a pipe.
+ */
 UV_EXTERN int uv_pipe_open(uv_pipe_t*, uv_file file);
 UV_EXTERN int uv_pipe_bind(uv_pipe_t* handle, const char* name);
 UV_EXTERN void uv_pipe_connect(uv_connect_t* req,
@@ -804,7 +834,6 @@ UV_EXTERN int uv_getaddrinfo(uv_loop_t* loop,
                              const struct addrinfo* hints);
 UV_EXTERN void uv_freeaddrinfo(struct addrinfo* ai);
 
-
 /*
 * uv_getnameinfo_t is a subclass of uv_req_t.
 *
@@ -824,32 +853,16 @@ UV_EXTERN int uv_getnameinfo(uv_loop_t* loop,
                              const struct sockaddr* addr,
                              int flags);
 
-
-/* uv_spawn() options. */
-typedef enum {
-  UV_IGNORE         = 0x00,
-  UV_CREATE_PIPE    = 0x01,
-  UV_INHERIT_FD     = 0x02,
-  UV_INHERIT_STREAM = 0x04,
-
-  /*
-   * When UV_CREATE_PIPE is specified, UV_READABLE_PIPE and UV_WRITABLE_PIPE
-   * determine the direction of flow, from the child process' perspective. Both
-   * flags may be specified to create a duplex data stream.
-   */
-  UV_READABLE_PIPE  = 0x10,
-  UV_WRITABLE_PIPE  = 0x20
-} uv_stdio_flags;
-
 typedef struct uv_stdio_container_s {
-  uv_stdio_flags flags;
-
-  union {
-    uv_stream_t* stream;
-    int fd;
-  } data;
+	uv_handle_type type;
+	union {
+		uv_stream_t *stream;
+		uv_file fd;
+		uv_os_handle_t os_handle;
+	} data;
 } uv_stdio_container_t;
 
+/* uv_spawn() options */
 typedef struct uv_process_options_s {
   uv_exit_cb exit_cb; /* Called after the process exits. */
   const char* file;   /* Path to program to execute. */
@@ -1049,9 +1062,9 @@ UV_EXTERN int uv_cpu_info(uv_cpu_info_t** cpu_infos, int* count);
 UV_EXTERN void uv_free_cpu_info(uv_cpu_info_t* cpu_infos, int count);
 
 UV_EXTERN int uv_interface_addresses(uv_interface_address_t** addresses,
-                                     int* count);
+  int* count);
 UV_EXTERN void uv_free_interface_addresses(uv_interface_address_t* addresses,
-                                           int count);
+  int count);
 
 
 typedef enum {
@@ -1103,44 +1116,44 @@ UV_EXTERN void uv_fs_req_cleanup(uv_fs_t* req);
 UV_EXTERN int uv_fs_close(uv_loop_t* loop,
                           uv_fs_t* req,
                           uv_file file,
-                          uv_fs_cb cb);
+    uv_fs_cb cb);
 UV_EXTERN int uv_fs_open(uv_loop_t* loop,
                          uv_fs_t* req,
                          const char* path,
                          int flags,
                          int mode,
-                         uv_fs_cb cb);
+    uv_fs_cb cb);
 UV_EXTERN int uv_fs_read(uv_loop_t* loop,
                          uv_fs_t* req,
                          uv_file file,
                          const uv_buf_t bufs[],
                          unsigned int nbufs,
                          int64_t offset,
-                         uv_fs_cb cb);
+    uv_fs_cb cb);
 UV_EXTERN int uv_fs_unlink(uv_loop_t* loop,
                            uv_fs_t* req,
                            const char* path,
-                           uv_fs_cb cb);
+    uv_fs_cb cb);
 UV_EXTERN int uv_fs_write(uv_loop_t* loop,
                           uv_fs_t* req,
                           uv_file file,
                           const uv_buf_t bufs[],
                           unsigned int nbufs,
                           int64_t offset,
-                          uv_fs_cb cb);
+    uv_fs_cb cb);
 UV_EXTERN int uv_fs_mkdir(uv_loop_t* loop,
                           uv_fs_t* req,
                           const char* path,
                           int mode,
-                          uv_fs_cb cb);
+    uv_fs_cb cb);
 UV_EXTERN int uv_fs_mkdtemp(uv_loop_t* loop,
                             uv_fs_t* req,
                             const char* tpl,
-                            uv_fs_cb cb);
+    uv_fs_cb cb);
 UV_EXTERN int uv_fs_rmdir(uv_loop_t* loop,
                           uv_fs_t* req,
                           const char* path,
-                          uv_fs_cb cb);
+    uv_fs_cb cb);
 UV_EXTERN int uv_fs_scandir(uv_loop_t* loop,
                             uv_fs_t* req,
                             const char* path,
@@ -1230,7 +1243,7 @@ UV_EXTERN int uv_fs_symlink(uv_loop_t* loop,
                             const char* path,
                             const char* new_path,
                             int flags,
-                            uv_fs_cb cb);
+    uv_fs_cb cb);
 UV_EXTERN int uv_fs_readlink(uv_loop_t* loop,
                              uv_fs_t* req,
                              const char* path,

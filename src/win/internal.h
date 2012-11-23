@@ -99,6 +99,10 @@ extern UV_THREAD_LOCAL int uv__crt_assert_enabled;
 #define UV_HANDLE_NON_OVERLAPPED_PIPE           0x01000000
 #define UV_HANDLE_PIPESERVER                    0x02000000
 #define UV_HANDLE_PIPE_READ_CANCELABLE          0x04000000
+#define UV_HANDLE_PIPE_IPC                      0x08000000
+#define UV_HANDLE_PIPE_SPAWN_SAFE               0x10000000
+#define UV_HANDLE_PIPE_IPC_CLIENT               0x20000000
+
 
 /* Only used by uv_tty_t handles. */
 #define UV_HANDLE_TTY_READABLE                  0x01000000
