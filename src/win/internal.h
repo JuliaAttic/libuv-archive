@@ -70,8 +70,12 @@
 #define UV_HANDLE_SHARED_TCP_SOCKET             0x40000000
 
 /* Only used by uv_pipe_t handles. */
-#define UV_HANDLE_NON_OVERLAPPED_PIPE           0x01000000
-#define UV_HANDLE_PIPESERVER                    0x02000000
+#define UV_HANDLE_PIPE_IPC                      0x01000000
+#define UV_HANDLE_PIPE_SPAWN_SAFE               0x02000000
+#define UV_HANDLE_NON_OVERLAPPED_PIPE           0x10000000
+#define UV_HANDLE_PIPESERVER                    0x20000000
+#define UV_HANDLE_PIPE_IPC_CLIENT               0x40000000
+
 
 /* Only used by uv_tty_t handles. */
 #define UV_HANDLE_TTY_READABLE                  0x01000000
