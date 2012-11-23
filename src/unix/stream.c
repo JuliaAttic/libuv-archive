@@ -1197,7 +1197,7 @@ int uv_write2(uv_write_t* req,
     return uv__set_artificial_error(stream->loop, UV_EBADF);
 
   if (send_handle) {
-    if (stream->type != UV_NAMED_PIPE || !((uv_pipe_t*)stream)->ipc)
+    if (stream->type != UV_NAMED_PIPE || !(((uv_pipe_t*)stream)->flags&UV_HANDLE_PIPE_IPC))
       return uv__set_artificial_error(stream->loop, UV_EINVAL);
 
     /* XXX We abuse uv_write2() to send over UDP handles to child processes.

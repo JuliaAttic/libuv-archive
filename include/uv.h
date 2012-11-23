@@ -173,7 +173,9 @@ typedef enum {
   UV_HANDLE_TYPE_MAP(XX)
 #undef XX
   UV_FILE,
-  UV_HANDLE_TYPE_MAX
+  UV_HANDLE_TYPE_MAX,
+  UV_RAW_FD, /* fd for both unix and windows */
+  UV_RAW_HANDLE /* HANDLE on windows, same as UV_RAW_FD on unix */
 } uv_handle_type;
 
 typedef enum {
@@ -978,19 +980,39 @@ UV_EXTERN uv_handle_type uv_guess_handle(uv_file file);
  *
  * Representing a pipe stream or pipe server. On Windows this is a Named
  * Pipe. On Unix this is a UNIX domain socket.
+ *
+ * A single uv_pipe_t always represents one end of a pipe. You can use
+ * uv_pipe_link to create a pair of connected pipe ends.
  */
 struct uv_pipe_s {
   UV_HANDLE_FIELDS
   UV_STREAM_FIELDS
-  int ipc; /* non-zero if this pipe is used for passing handles */
   UV_PIPE_PRIVATE_FIELDS
 };
 
+enum uv_pipe_flags {
+	UV_PIPE_IPC			 = 0x01,
+	UV_PIPE_SPAWN_SAFE	 = 0x02,
+	UV_PIPE_READABLE	 = 0x04,
+	UV_PIPE_WRITEABLE	 = 0x08
+};
 /*
  * Initialize a pipe. The last argument is a boolean to indicate if
  * this pipe will be used for handle passing between processes.
  */
-UV_EXTERN int uv_pipe_init(uv_loop_t*, uv_pipe_t* handle, int ipc);
+UV_EXTERN int uv_pipe_init(uv_loop_t*, uv_pipe_t* handle, int flags);
+
+/*
+ * Creates a pipe and assigns the two pipe ends to the given uv_pipe_t's
+ */
+UV_EXTERN int uv_pipe_link(uv_pipe_t *read, uv_pipe_t *write);
+
+/*
+ * Attempt to synchronously close the given pipe. This will only work if the pipe is
+ * inactive (i.e. not reading, writing listening, connecting, etc. Otherwise this function 
+ * will abort()
+ */
+UV_EXTERN void uv_pipe_close_sync(uv_pipe_t *pipe);
 
 /*
  * Opens an existing file descriptor or HANDLE as a pipe.
@@ -1249,30 +1271,16 @@ UV_EXTERN int uv_getaddrinfo(uv_loop_t* loop,
  */
 UV_EXTERN void uv_freeaddrinfo(struct addrinfo* ai);
 
-/* uv_spawn() options */
-typedef enum {
-  UV_IGNORE         = 0x00,
-  UV_CREATE_PIPE    = 0x01,
-  UV_INHERIT_FD     = 0x02,
-  UV_INHERIT_STREAM = 0x04,
-
-  /* When UV_CREATE_PIPE is specified, UV_READABLE_PIPE and UV_WRITABLE_PIPE
-   * determine the direction of flow, from the child process' perspective. Both
-   * flags may be specified to create a duplex data stream.
-   */
-  UV_READABLE_PIPE  = 0x10,
-  UV_WRITABLE_PIPE  = 0x20
-} uv_stdio_flags;
-
 typedef struct uv_stdio_container_s {
-  uv_stdio_flags flags;
-
-  union {
-    uv_stream_t* stream;
-    int fd;
-  } data;
+	uv_handle_type type;
+	union {
+		uv_stream_t *stream;
+		uv_file fd;
+		uv_os_handle_t os_handle;
+	} data;
 } uv_stdio_container_t;
 
+/* uv_spawn() options */
 typedef struct uv_process_options_s {
   uv_exit_cb exit_cb; /* Called after the process exits. */
   const char* file; /* Path to program to execute. */

@@ -911,10 +911,11 @@ int uv_spawn(uv_loop_t* loop, uv_process_t* process,
     /* Set IPC pid to all IPC pipes. */
     for (i = 0; i < options.stdio_count; i++) {
       const uv_stdio_container_t* fdopt = &options.stdio[i];
-      if (fdopt->flags & UV_CREATE_PIPE &&
-          fdopt->data.stream->type == UV_NAMED_PIPE &&
-          ((uv_pipe_t*) fdopt->data.stream)->ipc) {
-        ((uv_pipe_t*) fdopt->data.stream)->ipc_pid = info.dwProcessId;
+      if (fdopt->type == UV_STREAM &&
+        fdopt->data.stream != NULL &&
+        fdopt->data.stream->type == UV_NAMED_PIPE &&
+        fdopt->data.stream->flags & UV_HANDLE_PIPE_IPC_CLIENT) {
+        *((uv_pipe_t*) fdopt->data.stream)->ipc_pid.p_pid = info.dwProcessId;
       }
     }
 
