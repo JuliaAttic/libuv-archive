@@ -110,6 +110,10 @@ enum {
   UV_TCP_SINGLE_ACCEPT = 0x400  /* Only accept() when idle. */
 };
 
+/* Only used by uv_pipe_t handles. */
+#define UV_HANDLE_PIPE_IPC            0x01000000
+#define UV_HANDLE_PIPE_SPAWN_SAFE     0x02000000
+
 __attribute__((unused))
 static void uv__req_init(uv_loop_t* loop, uv_req_t* req, uv_req_type type) {
   req->type = type;
@@ -196,6 +200,7 @@ void uv__tcp_close(uv_tcp_t* handle);
 void uv__timer_close(uv_timer_t* handle);
 void uv__udp_close(uv_udp_t* handle);
 void uv__udp_finish_close(uv_udp_t* handle);
+void uv__finish_close(uv_handle_t* handle);
 
 #ifdef UV__O_NONBLOCK
 # define UV__F_NONBLOCK UV__O_NONBLOCK

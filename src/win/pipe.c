@@ -73,24 +73,27 @@ static void uv_unique_pipe_name(char* ptr, char* name, size_t size) {
 }
 
 
-int uv_pipe_init(uv_loop_t* loop, uv_pipe_t* handle, int ipc) {
+int uv_pipe_init(uv_loop_t* loop, uv_pipe_t* handle, int flags) {
   uv_stream_init(loop, (uv_stream_t*)handle, UV_NAMED_PIPE);
 
   handle->reqs_pending = 0;
   handle->handle = INVALID_HANDLE_VALUE;
   handle->name = NULL;
-  handle->ipc_pid = 0;
+  handle->ipc_pid.pid = 0;
   handle->remaining_ipc_rawdata_bytes = 0;
   handle->pending_ipc_info.socket_info = NULL;
   handle->pending_ipc_info.tcp_connection = 0;
-  handle->ipc = ipc;
   handle->non_overlapped_writes_tail = NULL;
+
+  handle->flags |= ((flags&UV_PIPE_IPC)?UV_HANDLE_PIPE_IPC:0)|
+                    ((flags&UV_PIPE_SPAWN_SAFE)?UV_HANDLE_PIPE_SPAWN_SAFE:0)|
+                    ((flags&UV_PIPE_READABLE)?UV_HANDLE_READABLE:0)|
+                    ((flags&UV_PIPE_WRITEABLE)?UV_HANDLE_WRITABLE:0);
 
   uv_req_init(loop, (uv_req_t*) &handle->ipc_header_write_req);
 
   return 0;
 }
-
 
 static void uv_pipe_connection_init(uv_pipe_t* handle) {
   uv_connection_init((uv_stream_t*) handle);
@@ -207,7 +210,149 @@ uv_err_t uv_stdio_pipe_server(uv_loop_t* loop, uv_pipe_t* handle, DWORD access,
 
   return err;
 }
+static uv_err_t uv__create_stdio_pipe_pair(uv_loop_t* loop,
+    uv_pipe_t* read, uv_pipe_t* write) {
+  char pipe_name[64];
+  SECURITY_ATTRIBUTES sa;
+  DWORD server_access = 0;
+  DWORD client_access = 0;
+  uv_pipe_t *server_pipe, *client_pipe;
+  uv_err_t err;
+  
+  if (read->flags & UV_HANDLE_PIPE_SPAWN_SAFE || write->flags & UV_HANDLE_PIPE_IPC) {
+    /* server_pipe is always owned by libuv, is never SPAWN_SAFE */
+    server_access |= PIPE_ACCESS_OUTBOUND;
+    if (write->flags&UV_HANDLE_READABLE);
+      server_access |= PIPE_ACCESS_INBOUND;
+    client_access |= GENERIC_READ | FILE_WRITE_ATTRIBUTES;
+    if (read->flags&UV_HANDLE_WRITABLE)
+      client_access |= GENERIC_WRITE;
+    server_pipe=write;
+    client_pipe=read;
+  } else {
+    server_access |= PIPE_ACCESS_INBOUND;
+    if(read->flags&UV_HANDLE_WRITABLE)
+        server_access |= PIPE_ACCESS_OUTBOUND;
+    client_access |= GENERIC_WRITE;
+    if(write->flags&UV_HANDLE_READABLE)
+        client_access |= GENERIC_READ | FILE_WRITE_ATTRIBUTES;
+    server_pipe=read;
+    client_pipe=write;
+  }
 
+  /* Create server pipe handle. */
+  err = uv_stdio_pipe_server(loop,
+                             server_pipe,
+                             server_access,
+                             pipe_name,
+                             sizeof(pipe_name));
+  if (err.code != UV_OK)
+    goto error;
+
+  /* Create child pipe handle. */
+  sa.nLength = sizeof sa;
+  sa.lpSecurityDescriptor = NULL;
+  sa.bInheritHandle = TRUE;
+
+  client_pipe->handle = CreateFileA(pipe_name,
+                           client_access,
+                           0,
+                           &sa,
+                           OPEN_EXISTING,
+                           (client_pipe->flags&UV_HANDLE_PIPE_SPAWN_SAFE) ? 0 : FILE_FLAG_OVERLAPPED,
+                           NULL);
+  if (client_pipe->handle == INVALID_HANDLE_VALUE) {
+    err = uv__new_sys_error(GetLastError());
+    goto error;
+  }
+
+#ifndef NDEBUG
+  /* Validate that the pipe was opened in the right mode. */
+  {
+    DWORD mode;
+    BOOL r = GetNamedPipeHandleState(client_pipe->handle,
+                                     &mode,
+                                     NULL,
+                                     NULL,
+                                     NULL,
+                                     NULL,
+                                     0);
+    assert(r == TRUE);
+    assert(mode == (PIPE_READMODE_BYTE | PIPE_WAIT));
+  }
+#endif
+
+  /* Do a blocking ConnectNamedPipe.  This should not block because we have */
+  /* both ends of the pipe created. */
+  if (!ConnectNamedPipe(server_pipe->handle, NULL)) {
+    if (GetLastError() != ERROR_PIPE_CONNECTED) {
+      err = uv__new_sys_error(GetLastError());
+      goto error;
+    }
+  }
+
+  if (client_pipe->flags&UV_HANDLE_PIPE_SPAWN_SAFE) {
+        client_pipe->flags|=UV_HANDLE_NON_OVERLAPPED_PIPE;
+  }
+  uv_pipe_connection_init(client_pipe);
+
+  return uv_ok_;
+
+ error:
+  if (server_pipe->handle != INVALID_HANDLE_VALUE) {
+    uv_pipe_cleanup(loop, server_pipe);
+  }
+
+  if (client_pipe->handle != INVALID_HANDLE_VALUE) {
+    uv_pipe_cleanup(loop, client_pipe);
+  }
+  
+  return err;
+}
+
+int uv_pipe_link(uv_pipe_t* read, uv_pipe_t* write)
+{
+    int err;
+    assert(read->loop==write->loop);
+    assert(read->flags&UV_HANDLE_READABLE);
+    assert(write->flags&UV_HANDLE_WRITABLE);
+    assert(!(write->flags&read->flags&UV_HANDLE_PIPE_IPC));
+    if (read->flags & write->flags & UV_HANDLE_PIPE_SPAWN_SAFE) {
+        if (!CreatePipe(&(read->handle),&(write->handle),NULL,65536)) {
+            uv__set_sys_error(read->loop, GetLastError());
+            err = -1;
+            goto done;
+        }
+        read->flags |= UV_HANDLE_NON_OVERLAPPED_PIPE;
+        write->flags |= UV_HANDLE_NON_OVERLAPPED_PIPE;
+        uv_pipe_connection_init(read);
+        uv_pipe_connection_init(write);
+        err = 0;
+    } else {
+        uv_err_t uverr = uv__create_stdio_pipe_pair(read->loop,read,write);
+        err = (uverr.code == UV_OK) ? 0 : -1;
+        if (read->flags&UV_HANDLE_PIPE_IPC) {
+            write->flags |= UV_HANDLE_PIPE_IPC_CLIENT;
+            write->ipc_pid.p_pid = &(read->ipc_pid.pid);
+        } else if (write->flags&UV_HANDLE_PIPE_IPC) {
+            read->flags |= UV_HANDLE_PIPE_IPC_CLIENT;
+            read->ipc_pid.p_pid = &(write->ipc_pid.pid);
+        }
+    }
+done:
+    return err;
+}
+
+void uv_pipe_close_sync(uv_pipe_t *pipe)
+{
+    assert(!(pipe->flags&(UV_HANDLE_LISTENING|UV_HANDLE_BOUND|
+        UV_HANDLE_READING))&&pipe->reqs_pending==0);
+    pipe->close_cb=NULL;
+    uv_pipe_cleanup(pipe->loop,pipe);
+    uv_pipe_endgame(pipe->loop,pipe);
+    uv__handle_closing(pipe);
+    uv__handle_close(pipe);
+}
 
 static int uv_set_pipe_handle(uv_loop_t* loop, uv_pipe_t* handle,
     HANDLE pipeHandle, DWORD duplex_flags) {
@@ -722,7 +867,7 @@ int uv_pipe_accept(uv_pipe_t* server, uv_stream_t* client) {
   uv_pipe_t* pipe_client;
   uv_pipe_accept_t* req;
 
-  if (server->ipc) {
+  if (server->flags&UV_HANDLE_PIPE_IPC) {
     if (!server->pending_ipc_info.socket_info) {
       /* No valid pending sockets. */
       uv__set_sys_error(loop, WSAEWOULDBLOCK);
@@ -1073,7 +1218,7 @@ static int uv_pipe_write_impl(uv_loop_t* loop, uv_write_t* req,
   req->wait_handle = INVALID_HANDLE_VALUE;
   memset(&req->overlapped, 0, sizeof(req->overlapped));
 
-  if (handle->ipc) {
+  if (handle->flags&UV_HANDLE_PIPE_IPC) {
     assert(!(handle->flags & UV_HANDLE_NON_OVERLAPPED_PIPE));
     ipc_frame.header.flags = 0;
 
@@ -1081,7 +1226,7 @@ static int uv_pipe_write_impl(uv_loop_t* loop, uv_write_t* req,
     if (send_handle) {
       tcp_send_handle = (uv_tcp_t*)send_handle;
 
-      if (uv_tcp_duplicate_socket(tcp_send_handle, handle->ipc_pid,
+      if (uv_tcp_duplicate_socket(tcp_send_handle, handle->ipc_pid.pid,
           &ipc_frame.socket_info)) {
         return -1;
       }
@@ -1220,7 +1365,7 @@ int uv_pipe_write(uv_loop_t* loop, uv_write_t* req, uv_pipe_t* handle,
 
 int uv_pipe_write2(uv_loop_t* loop, uv_write_t* req, uv_pipe_t* handle,
     uv_buf_t bufs[], int bufcnt, uv_stream_t* send_handle, uv_write_cb cb) {
-  if (!handle->ipc) {
+  if (!(handle->flags&UV_HANDLE_PIPE_IPC)) {
     uv__set_artificial_error(loop, UV_EINVAL);
     return -1;
   }
@@ -1311,7 +1456,7 @@ void uv_process_pipe_read_req(uv_loop_t* loop, uv_pipe_t* handle,
         break;
       }
 
-      if (handle->ipc) {
+      if (handle->flags&UV_HANDLE_PIPE_IPC) {
         /* Use the IPC framing protocol to read the incoming data. */
         if (handle->remaining_ipc_rawdata_bytes == 0) {
           /* We're reading a new frame.  First, read the header. */
@@ -1380,7 +1525,7 @@ void uv_process_pipe_read_req(uv_loop_t* loop, uv_pipe_t* handle,
                    &bytes,
                    NULL)) {
         /* Successful read */
-        if (handle->ipc) {
+        if (handle->flags&UV_HANDLE_PIPE_IPC) {
           assert(handle->remaining_ipc_rawdata_bytes >= bytes);
           handle->remaining_ipc_rawdata_bytes =
             handle->remaining_ipc_rawdata_bytes - bytes;
@@ -1647,10 +1792,10 @@ int uv_pipe_open(uv_pipe_t* pipe, uv_file file) {
   pipe->handle = os_handle;
   pipe->flags |= UV_HANDLE_READABLE | UV_HANDLE_WRITABLE;
 
-  if (pipe->ipc) {
+  if (pipe->flags&UV_HANDLE_PIPE_IPC) {
     assert(!(pipe->flags & UV_HANDLE_NON_OVERLAPPED_PIPE));
-    pipe->ipc_pid = uv_parent_pid();
-    assert(pipe->ipc_pid != -1);
+    pipe->ipc_pid.pid = uv_parent_pid();
+    assert(pipe->ipc_pid.pid != -1);
   }
   return 0;
 }

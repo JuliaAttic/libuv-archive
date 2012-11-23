@@ -147,7 +147,7 @@ void uv__make_close_pending(uv_handle_t* handle) {
 }
 
 
-static void uv__finish_close(uv_handle_t* handle) {
+void uv__finish_close(uv_handle_t* handle) {
   assert(!uv__is_active(handle));
   assert(handle->flags & UV_CLOSING);
   assert(!(handle->flags & UV_CLOSED));

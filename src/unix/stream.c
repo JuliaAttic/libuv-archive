@@ -912,7 +912,7 @@ int uv_write2(uv_write_t* req,
   }
 
   if (send_handle) {
-    if (stream->type != UV_NAMED_PIPE || !((uv_pipe_t*)stream)->ipc) {
+    if (stream->type != UV_NAMED_PIPE || !(((uv_pipe_t*)stream)->flags&UV_HANDLE_PIPE_IPC)) {
       uv__set_sys_error(stream->loop, EOPNOTSUPP);
       return -1;
     }
