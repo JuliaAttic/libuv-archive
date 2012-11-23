@@ -113,42 +113,6 @@ static void uv__chld(uv_signal_t* handle, int signum) {
 }
 
 
-int uv__make_socketpair(int fds[2], int flags) {
-#if defined(__linux__)
-  static int no_cloexec;
-
-  if (no_cloexec)
-    goto skip;
-
-  if (socketpair(AF_UNIX, SOCK_STREAM | UV__SOCK_CLOEXEC | flags, 0, fds) == 0)
-    return 0;
-
-  /* Retry on EINVAL, it means SOCK_CLOEXEC is not supported.
-   * Anything else is a genuine error.
-   */
-  if (errno != EINVAL)
-    return -1;
-
-  no_cloexec = 1;
-
-skip:
-#endif
-
-  if (socketpair(AF_UNIX, SOCK_STREAM, 0, fds))
-    return -1;
-
-  uv__cloexec(fds[0], 1);
-  uv__cloexec(fds[1], 1);
-
-  if (flags & UV__F_NONBLOCK) {
-    uv__nonblock(fds[0], 1);
-    uv__nonblock(fds[1], 1);
-  }
-
-  return 0;
-}
-
-
 int uv__make_pipe(int fds[2], int flags) {
 #if defined(__linux__)
   static int no_pipe2;
@@ -186,78 +150,33 @@ skip:
  * Used for initializing stdio streams like options.stdin_stream. Returns
  * zero on success.
  */
-static int uv__process_init_stdio(uv_stdio_container_t* container, int fds[2]) {
-  int mask;
-  int fd;
-
-  mask = UV_IGNORE | UV_CREATE_PIPE | UV_INHERIT_FD | UV_INHERIT_STREAM;
-
-  switch (container->flags & mask) {
-  case UV_IGNORE:
-    return 0;
-
-  case UV_CREATE_PIPE:
-    assert(container->data.stream != NULL);
-    if (container->data.stream->type != UV_NAMED_PIPE) {
+static int uv__process_init_stdio(uv_stdio_container_t* container, int *fd) {
+  switch (container->type) {
+    case UV_STREAM:
+      if (container->data.stream == NULL) {
+        *fd = -1;
+        return 0;
+      } else {
+        *fd = container->data.stream->io_watcher.fd;
+      }
+      break;
+    case UV_RAW_FD:
+    case UV_RAW_HANDLE:
+      *fd = container->data.fd;
+      break;
+    default:
+      assert (0 && "Unexpected flags");
+      *fd = -1;
       errno = EINVAL;
       return -1;
-    }
-    return uv__make_socketpair(fds, 0);
-
-  case UV_INHERIT_FD:
-  case UV_INHERIT_STREAM:
-    if (container->flags & UV_INHERIT_FD)
-      fd = container->data.fd;
-    else
-      fd = uv__stream_fd(container->data.stream);
-
-    if (fd == -1) {
-      errno = EINVAL;
-      return -1;
-    }
-
-    fds[1] = fd;
-    return 0;
-
-  default:
-    assert(0 && "Unexpected flags");
+  }
+  if (*fd == -1) {
+    errno = EINVAL;
     return -1;
+  } else {
+    return 0;
   }
 }
-
-
-static int uv__process_open_stream(uv_stdio_container_t* container,
-                                   int pipefds[2],
-                                   int writable) {
-  int flags;
-
-  if (!(container->flags & UV_CREATE_PIPE) || pipefds[0] < 0)
-    return 0;
-
-  if (close(pipefds[1]))
-    if (errno != EINTR && errno != EINPROGRESS)
-      abort();
-
-  pipefds[1] = -1;
-  uv__nonblock(pipefds[0], 1);
-
-  if (container->data.stream->type == UV_NAMED_PIPE &&
-      ((uv_pipe_t*)container->data.stream)->ipc)
-    flags = UV_STREAM_READABLE | UV_STREAM_WRITABLE;
-  else if (writable)
-    flags = UV_STREAM_WRITABLE;
-  else
-    flags = UV_STREAM_READABLE;
-
-  return uv__stream_open(container->data.stream, pipefds[0], flags);
-}
-
-
-static void uv__process_close_stream(uv_stdio_container_t* container) {
-  if (!(container->flags & UV_CREATE_PIPE)) return;
-  uv__stream_close((uv_stream_t*)container->data.stream);
-}
-
 
 static void uv__write_int(int fd, int val) {
   ssize_t n;
@@ -275,9 +194,8 @@ static void uv__write_int(int fd, int val) {
 
 static void uv__process_child_init(uv_process_options_t options,
                                    int stdio_count,
-                                   int (*pipes)[2],
+                                   int *pipes,
                                    int error_fd) {
-  int close_fd;
   int use_fd;
   int fd;
 
@@ -285,14 +203,12 @@ static void uv__process_child_init(uv_process_options_t options,
     setsid();
 
   for (fd = 0; fd < stdio_count; fd++) {
-    close_fd = pipes[fd][0];
-    use_fd = pipes[fd][1];
+    use_fd = pipes[fd];
 
-    if (use_fd >= 0)
-      close(close_fd);
-    else if (fd >= 3)
+    if (use_fd >= 0) {
+    } else if (fd >= 3) {
       continue;
-    else {
+    } else {
       /* redirect stdin, stdout and stderr to /dev/null even if UV_IGNORE is
        * set
        */
@@ -349,7 +265,7 @@ int uv_spawn(uv_loop_t* loop,
              uv_process_t* process,
              const uv_process_options_t options) {
   int signal_pipe[2] = { -1, -1 };
-  int (*pipes)[2];
+  int *pipes;
   int stdio_count;
   QUEUE* q;
   ssize_t r;
@@ -377,12 +293,11 @@ int uv_spawn(uv_loop_t* loop,
   }
 
   for (i = 0; i < stdio_count; i++) {
-    pipes[i][0] = -1;
-    pipes[i][1] = -1;
+    pipes[i] = -1;
   }
 
   for (i = 0; i < options.stdio_count; i++)
-    if (uv__process_init_stdio(options.stdio + i, pipes[i]))
+    if (uv__process_init_stdio(options.stdio + i, &pipes[i]))
       goto error;
 
   /* This pipe is used by the parent to wait until
@@ -441,13 +356,6 @@ int uv_spawn(uv_loop_t* loop,
 
   close(signal_pipe[0]);
 
-  for (i = 0; i < options.stdio_count; i++) {
-    if (uv__process_open_stream(options.stdio + i, pipes[i], i == 0)) {
-      while (i--) uv__process_close_stream(options.stdio + i);
-      goto error;
-    }
-  }
-
   q = uv__process_queue(loop, pid);
   QUEUE_INSERT_TAIL(q, &process->queue);
 
@@ -462,8 +370,8 @@ error:
   uv__set_sys_error(process->loop, errno);
 
   for (i = 0; i < stdio_count; i++) {
-    close(pipes[i][0]);
-    close(pipes[i][1]);
+    if (options.stdio[i].type == UV_STREAM && options.stdio[i].data.stream == NULL)
+      close(pipes[i]);
   }
   free(pipes);
 

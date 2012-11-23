@@ -114,6 +114,10 @@ enum {
   UV_TCP_SINGLE_ACCEPT    = 0x1000  /* Only accept() when idle. */
 };
 
+/* Only used by uv_pipe_t handles. */
+#define UV_HANDLE_PIPE_IPC            0x01000000
+#define UV_HANDLE_PIPE_SPAWN_SAFE     0x02000000
+
 /* core */
 int uv__nonblock(int fd, int set);
 int uv__cloexec(int fd, int set);
@@ -200,6 +204,7 @@ void uv__tcp_close(uv_tcp_t* handle);
 void uv__timer_close(uv_timer_t* handle);
 void uv__udp_close(uv_udp_t* handle);
 void uv__udp_finish_close(uv_udp_t* handle);
+void uv__finish_close(uv_handle_t* handle);
 
 #if defined(__APPLE__)
 int uv___stream_fd(uv_stream_t* handle);
@@ -213,9 +218,6 @@ int uv___stream_fd(uv_stream_t* handle);
 #else
 # define UV__F_NONBLOCK 1
 #endif
-
-int uv__make_socketpair(int fds[2], int flags);
-int uv__make_pipe(int fds[2], int flags);
 
 #if defined(__APPLE__)
 typedef void (*cf_loop_signal_cb)(void*);
