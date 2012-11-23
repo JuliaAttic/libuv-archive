@@ -104,7 +104,7 @@ static int uv__create_stdio_pipe_pair(uv_loop_t* loop,
   HANDLE child_pipe = INVALID_HANDLE_VALUE;
   int err;
 
-  if (flags & UV_READABLE_PIPE) {
+  if (flags & UV_PIPE_READABLE) {
     /* The server needs inbound access too, otherwise CreateNamedPipe() */
     /* won't give us the FILE_READ_ATTRIBUTES permission. We need that to */
     /* probe the state of the write buffer when we're trying to shutdown */
@@ -112,7 +112,7 @@ static int uv__create_stdio_pipe_pair(uv_loop_t* loop,
     server_access |= PIPE_ACCESS_OUTBOUND | PIPE_ACCESS_INBOUND;
     client_access |= GENERIC_READ | FILE_WRITE_ATTRIBUTES;
   }
-  if (flags & UV_WRITABLE_PIPE) {
+  if (flags & UV_PIPE_WRITABLE) {
     server_access |= PIPE_ACCESS_INBOUND;
     client_access |= GENERIC_WRITE | FILE_READ_ATTRIBUTES;
   }
@@ -136,7 +136,7 @@ static int uv__create_stdio_pipe_pair(uv_loop_t* loop,
                            0,
                            &sa,
                            OPEN_EXISTING,
-                           server_pipe->ipc ? FILE_FLAG_OVERLAPPED : 0,
+                           (flags & UV_PIPE_IPC) ? FILE_FLAG_OVERLAPPED : 0,
                            NULL);
   if (child_pipe == INVALID_HANDLE_VALUE) {
     err = GetLastError();
@@ -169,9 +169,9 @@ static int uv__create_stdio_pipe_pair(uv_loop_t* loop,
   }
 
   /* The server end is now readable and/or writable. */
-  if (flags & UV_READABLE_PIPE)
+  if (flags & UV_PIPE_READABLE)
     server_pipe->flags |= UV_HANDLE_WRITABLE;
-  if (flags & UV_WRITABLE_PIPE)
+  if (flags & UV_PIPE_WRITABLE)
     server_pipe->flags |= UV_HANDLE_READABLE;
 
   *child_pipe_ptr = child_pipe;
@@ -293,74 +293,31 @@ int uv__stdio_create(uv_loop_t* loop,
   }
 
   for (i = 0; i < count; i++) {
-    uv_stdio_container_t fdopt;
-    if (i < options->stdio_count) {
-      fdopt = options->stdio[i];
+    uv_stream_t *stream;
+    HANDLE stream_handle, child_handle;
+    int crt_flags;
+
+    if (i >= options->stdio_count) {
+        stream = NULL;
     } else {
-      fdopt.flags = UV_IGNORE;
-    }
-
-    switch (fdopt.flags & (UV_IGNORE | UV_CREATE_PIPE | UV_INHERIT_FD |
-            UV_INHERIT_STREAM)) {
-      case UV_IGNORE:
-        /* Starting a process with no stdin/stout/stderr can confuse it. */
-        /* So no matter what the user specified, we make sure the first */
-        /* three FDs are always open in their typical modes, e.g. stdin */
-        /* be readable and stdout/err should be writable. For FDs > 2, don't */
-        /* do anything - all handles in the stdio buffer are initialized with */
-        /* INVALID_HANDLE_VALUE, which should be okay. */
-        if (i <= 2) {
-          DWORD access = (i == 0) ? FILE_GENERIC_READ :
-                                    FILE_GENERIC_WRITE | FILE_READ_ATTRIBUTES;
-
-          err = uv__create_nul_handle(&CHILD_STDIO_HANDLE(buffer, i),
-                                      access);
-          if (err)
-            goto error;
-
-          CHILD_STDIO_CRT_FLAGS(buffer, i) = FOPEN | FDEV;
-        }
-        break;
-
-      case UV_CREATE_PIPE: {
-        /* Create a pair of two connected pipe ends; one end is turned into */
-        /* an uv_pipe_t for use by the parent. The other one is given to */
-        /* the child. */
-        uv_pipe_t* parent_pipe = (uv_pipe_t*) fdopt.data.stream;
-        HANDLE child_pipe = INVALID_HANDLE_VALUE;
-
-        /* Create a new, connected pipe pair. stdio[i].stream should point */
-        /* to an uninitialized, but not connected pipe handle. */
-        assert(fdopt.data.stream->type == UV_NAMED_PIPE);
-        assert(!(fdopt.data.stream->flags & UV_HANDLE_CONNECTION));
-        assert(!(fdopt.data.stream->flags & UV_HANDLE_PIPESERVER));
-
-        err = uv__create_stdio_pipe_pair(loop,
-                                         parent_pipe,
-                                         &child_pipe,
-                                         fdopt.flags);
-        if (err)
-          goto error;
-
-        CHILD_STDIO_HANDLE(buffer, i) = child_pipe;
-        CHILD_STDIO_CRT_FLAGS(buffer, i) = FOPEN | FPIPE;
-        break;
-      }
-
-      case UV_INHERIT_FD: {
+      if (options->stdio[i].type == UV_STREAM) {
+          stream = options->stdio[i].data.stream;
+      } else {
         /* Inherit a raw FD. */
         HANDLE child_handle;
-
+        switch (options->stdio[i].type) {
+          case UV_RAW_FD:
         /* Make an inheritable duplicate of the handle. */
-        err = uv__duplicate_fd(loop, fdopt.data.fd, &child_handle);
-        if (err) {
-          /* If fdopt.data.fd is not valid and fd fd <= 2, then ignore the */
-          /* error. */
-          if (fdopt.data.fd <= 2 && err == ERROR_INVALID_HANDLE) {
-            CHILD_STDIO_CRT_FLAGS(buffer, i) = 0;
-            CHILD_STDIO_HANDLE(buffer, i) = INVALID_HANDLE_VALUE;
+            err = uv__duplicate_fd(loop, options->stdio[i].data.fd, &child_handle);
+	        if (err != 0)
+              goto error;
             break;
-          }
+          case UV_RAW_HANDLE:
+            err = uv__duplicate_handle(loop, options->stdio[i].data.os_handle, &child_handle);
+            if (err != 0)
+              goto error;
+            break;
+          default:
           goto error;
         }
 
@@ -393,50 +350,58 @@ int uv__stdio_create(uv_loop_t* loop,
         }
 
         CHILD_STDIO_HANDLE(buffer, i) = child_handle;
-        break;
+        continue;
       }
+    }
 
-      case UV_INHERIT_STREAM: {
-        /* Use an existing stream as the stdio handle for the child. */
-        HANDLE stream_handle, child_handle;
-        unsigned char crt_flags;
-        uv_stream_t* stream = fdopt.data.stream;
+    if(stream == NULL) {
+      /* Starting a process with no stdin/stout/stderr can confuse it. */
+      /* So no matter what the user specified, we make sure the first */
+      /* three FDs are always open in their typical modes, e.g. stdin */
+      /* be readable and stdout/err should be writable. For FDs > 2, don't */
+      /* do anything - all handles in the stdio buffer are initialized with */
+      /* INVALID_HANDLE_VALUE, which should be okay. */
+      if (i <= 2) {
+        DWORD access = (i == 0) ? FILE_GENERIC_READ :
+            (FILE_GENERIC_WRITE | FILE_READ_ATTRIBUTES);
+        err = uv__create_nul_handle(&CHILD_STDIO_HANDLE(buffer, i), access);
+        if (err != 0)
+          goto error;
+        CHILD_STDIO_CRT_FLAGS(buffer, i) = FOPEN | FDEV;
+      }
+      continue;
+    }
 
-        /* Leech the handle out of the stream. */
-        if (stream->type == UV_TTY) {
+    /* Leech the handle out of the stream. */
+    switch (stream->type) {
+      case UV_TTY:
           stream_handle = ((uv_tty_t*) stream)->handle;
           crt_flags = FOPEN | FDEV;
-        } else if (stream->type == UV_NAMED_PIPE &&
-                   stream->flags & UV_HANDLE_CONNECTION) {
+          break;
+      case UV_NAMED_PIPE:
           stream_handle = ((uv_pipe_t*) stream)->handle;
           crt_flags = FOPEN | FPIPE;
-        } else {
+          break;
+      default:
           stream_handle = INVALID_HANDLE_VALUE;
           crt_flags = 0;
-        }
-
-        if (stream_handle == NULL ||
-            stream_handle == INVALID_HANDLE_VALUE) {
-          /* The handle is already closed, or not yet created, or the */
-          /* stream type is not supported. */
-          err = ERROR_NOT_SUPPORTED;
-          goto error;
-        }
-
-        /* Make an inheritable copy of the handle. */
-        err = uv__duplicate_handle(loop, stream_handle, &child_handle);
-        if (err)
-          goto error;
-
-        CHILD_STDIO_HANDLE(buffer, i) = child_handle;
-        CHILD_STDIO_CRT_FLAGS(buffer, i) = crt_flags;
-        break;
       }
 
-      default:
-        assert(0);
-        return -1;
-    }
+      if (stream_handle == NULL ||
+          stream_handle == INVALID_HANDLE_VALUE) {
+              /* The handle is already closed, or not yet created, or the */
+              /* stream type is not supported. */
+          err = ERROR_NOT_SUPPORTED;
+              goto error;
+      }
+
+      /* Make an inheritable copy of the handle. */
+      err = uv__duplicate_handle(loop, stream_handle, &child_handle);
+      if (err != 0)
+        goto error;
+
+      CHILD_STDIO_HANDLE(buffer, i) = child_handle;
+      CHILD_STDIO_CRT_FLAGS(buffer, i) = crt_flags;
   }
 
   *buffer_ptr  = buffer;

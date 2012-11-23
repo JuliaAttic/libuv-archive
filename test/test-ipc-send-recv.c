@@ -115,7 +115,7 @@ static void recv_cb(uv_stream_t* handle,
     ASSERT(pending == ctx.expected_type);
 
     if (pending == UV_NAMED_PIPE)
-      r = uv_pipe_init(ctx.channel.loop, &recv->pipe, 0);
+      r = uv_pipe_init(ctx.channel.loop, &recv->pipe, UV_PIPE_READABLE|UV_PIPE_WRITABLE);
     else if (pending == UV_TCP)
       r = uv_tcp_init(ctx.channel.loop, &recv->tcp);
     else
@@ -173,7 +173,7 @@ static int run_test(int inprocess) {
 
     uv_sleep(1000);
 
-    r = uv_pipe_init(uv_default_loop(), &ctx.channel, 1);
+    r = uv_pipe_init(uv_default_loop(), &ctx.channel, UV_PIPE_READABLE|UV_PIPE_WRITABLE|UV_PIPE_IPC);
     ASSERT(r == 0);
 
     uv_pipe_connect(&ctx.connect_req, &ctx.channel, TEST_PIPENAME_3, connect_cb);
@@ -201,13 +201,13 @@ static int run_ipc_send_recv_pipe(int inprocess) {
 
   ctx.expected_type = UV_NAMED_PIPE;
 
-  r = uv_pipe_init(uv_default_loop(), &ctx.send.pipe, 1);
+  r = uv_pipe_init(uv_default_loop(), &ctx.send.pipe, UV_PIPE_READABLE|UV_PIPE_WRITABLE|UV_PIPE_IPC);
   ASSERT(r == 0);
 
   r = uv_pipe_bind(&ctx.send.pipe, TEST_PIPENAME);
   ASSERT(r == 0);
 
-  r = uv_pipe_init(uv_default_loop(), &ctx.send2.pipe, 1);
+  r = uv_pipe_init(uv_default_loop(), &ctx.send2.pipe, UV_PIPE_READABLE|UV_PIPE_WRITABLE|UV_PIPE_IPC);
   ASSERT(r == 0);
 
   r = uv_pipe_bind(&ctx.send2.pipe, TEST_PIPENAME_2);
@@ -310,7 +310,7 @@ static void read_cb(uv_stream_t* handle,
   ASSERT(pending == UV_NAMED_PIPE || pending == UV_TCP);
 
   if (pending == UV_NAMED_PIPE)
-    r = uv_pipe_init(ctx2.channel.loop, &recv->pipe, 0);
+    r = uv_pipe_init(ctx2.channel.loop, &recv->pipe, UV_PIPE_READABLE|UV_PIPE_WRITABLE);
   else if (pending == UV_TCP)
     r = uv_tcp_init(ctx2.channel.loop, &recv->tcp);
   else
@@ -358,10 +358,10 @@ int run_ipc_send_recv_helper(uv_loop_t* loop, int inprocess) {
 
   memset(&ctx2, 0, sizeof(ctx2));
 
-  r = uv_pipe_init(loop, &ctx2.listen, 0);
+  r = uv_pipe_init(loop, &ctx2.listen, UV_PIPE_READABLE|UV_PIPE_WRITABLE);
   ASSERT(r == 0);
 
-  r = uv_pipe_init(loop, &ctx2.channel, 1);
+  r = uv_pipe_init(loop, &ctx2.channel, UV_PIPE_READABLE|UV_PIPE_WRITABLE|UV_PIPE_IPC);
   ASSERT(r == 0);
 
   if (inprocess) {

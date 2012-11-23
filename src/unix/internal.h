@@ -154,7 +154,9 @@ enum {
   UV_TCP_KEEPALIVE        = 0x800,  /* Turn on keep-alive. */
   UV_TCP_SINGLE_ACCEPT    = 0x1000, /* Only accept() when idle. */
   UV_HANDLE_IPV6          = 0x10000, /* Handle is bound to a IPv6 socket. */
-  UV_UDP_PROCESSING       = 0x20000  /* Handle is running the send callback queue. */
+  UV_UDP_PROCESSING       = 0x20000, /* Handle is running the send callback queue. */
+  UV__PIPE_IPC            = 0x40000, /* Handle is configured for IPC */
+  UV__PIPE_SPAWN_SAFE     = 0x80000  /* Handle is "safe" to pass to a spawn child (blocking mode / non-overlapped) */
 };
 
 /* loop flags */
@@ -256,6 +258,7 @@ void uv__tcp_close(uv_tcp_t* handle);
 void uv__timer_close(uv_timer_t* handle);
 void uv__udp_close(uv_udp_t* handle);
 void uv__udp_finish_close(uv_udp_t* handle);
+void uv__finish_close(uv_handle_t* handle);
 uv_handle_type uv__handle_type(int fd);
 FILE* uv__open_file(const char* path);
 int uv__getpwuid_r(uv_passwd_t* pwd);
@@ -274,7 +277,6 @@ int uv___stream_fd(const uv_stream_t* handle);
 # define UV__F_NONBLOCK 1
 #endif
 
-int uv__make_socketpair(int fds[2], int flags);
 int uv__make_pipe(int fds[2], int flags);
 
 #if defined(__APPLE__)
