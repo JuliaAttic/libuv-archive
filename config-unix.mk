@@ -140,8 +140,10 @@ clean-platform:
 	-rm -f src/unix/*.o
 	-rm -f src/unix/linux/*.o
 	-rm -rf test/run-tests.dSYM run-benchmarks.dSYM
+	-rm -f libuv.$(SOEXT)
 
 distclean-platform:
 	-rm -f src/unix/*.o
 	-rm -f src/unix/linux/*.o
 	-rm -rf test/run-tests.dSYM run-benchmarks.dSYM
+	-rm -f libuv.$(SOEXT)
