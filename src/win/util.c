@@ -31,7 +31,10 @@
 #include "uv.h"
 #include "internal.h"
 
+#define _WIN32_WINNT_BKUP _WIN32_WINNT
+#undef _WIN32_WINNT
 #include <iphlpapi.h>
+#define _WIN32_WINNT _WIN32_WINNT_BKUP
 #include <psapi.h>
 #include <tlhelp32.h>
 
