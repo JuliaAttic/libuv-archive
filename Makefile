@@ -24,7 +24,7 @@ ifdef MSVC
 uname_S := MINGW
 endif
 
-override CPPFLAGS += -Iinclude -Iinclude/uv-private
+CPPFLAGS = -Iinclude -Iinclude/uv-private
 
 ifeq (Darwin,$(uname_S))
 SOEXT = dylib
