@@ -31,8 +31,12 @@
 #include "uv.h"
 #include "internal.h"
 
+#pragma push_macro("_WIN32_WINNT")
+#undef _WIN32_WINNT
+#define _WIN32_WINNT 0x0502
 #include <Winsock2.h>
 #include <iphlpapi.h>
+#pragma pop_macro("_WIN32_WINNT")
 #include <psapi.h>
 #include <tlhelp32.h>
 
