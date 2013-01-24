@@ -31,10 +31,11 @@
 #include "uv.h"
 #include "internal.h"
 
-#define _WIN32_WINNT_BKUP _WIN32_WINNT
+#pragma push_macro("_WIN32_WINNT")
 #undef _WIN32_WINNT
+#define _WIN32_WINNT 0x0502
 #include <iphlpapi.h>
-#define _WIN32_WINNT _WIN32_WINNT_BKUP
+#pragma pop_macro("_WIN32_WINNT")
 #include <psapi.h>
 #include <tlhelp32.h>
 
