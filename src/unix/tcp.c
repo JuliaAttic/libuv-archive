@@ -160,7 +160,7 @@ int uv__tcp_bind(uv_tcp_t* tcp,
 
   err = maybe_new_socket(tcp,
                          addr->sa_family,
-                         UV_STREAM_READABLE | UV_STREAM_WRITABLE);
+                         0);
   if (err)
     return err;
 
