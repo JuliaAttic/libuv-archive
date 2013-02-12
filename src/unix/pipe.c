@@ -229,7 +229,7 @@ void uv__pipe_close(uv_pipe_t* handle) {
 int uv_pipe_open(uv_pipe_t* handle, uv_file fd) {
   return uv__stream_open((uv_stream_t*)handle,
                          fd,
-                         UV_STREAM_READABLE | UV_STREAM_WRITABLE);
+                         0);
 }
 
 
