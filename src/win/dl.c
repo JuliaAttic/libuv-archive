@@ -31,11 +31,17 @@ int uv_dlopen(const char* filename, uv_lib_t* lib) {
   lib->handle = NULL;
   lib->errmsg = NULL;
 
-  if (!uv_utf8_to_utf16(filename, filename_w, ARRAY_SIZE(filename_w))) {
-    return uv__dlerror(lib, GetLastError());
+  if (filename) {
+    if (!uv_utf8_to_utf16(filename, filename_w, ARRAY_SIZE(filename_w))) {
+      return uv__dlerror(lib, GetLastError());
+    }
+    lib->handle = LoadLibraryExW(filename_w, NULL, 
+                                 LOAD_WITH_ALTERED_SEARCH_PATH);
+  }
+  else { /* load global namespace (handle to calling executable) */
+    lib->handle = GetModuleHandle(NULL);
   }
 
-  lib->handle = LoadLibraryExW(filename_w, NULL, LOAD_WITH_ALTERED_SEARCH_PATH);
   if (lib->handle == NULL) {
     return uv__dlerror(lib, GetLastError());
   }
