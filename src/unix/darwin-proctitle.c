@@ -18,15 +18,19 @@
  * IN THE SOFTWARE.
  */
 
+#include <Cocoa/Cocoa.h>
+
+#if 0
 #include <TargetConditionals.h>
 
 #if !TARGET_OS_IPHONE
 # include <CoreFoundation/CoreFoundation.h>
 # include <ApplicationServices/ApplicationServices.h>
 #endif
-
+#endif
 
 int uv__set_process_title(const char* title) {
+#if 0
 #if TARGET_OS_IPHONE
   return -ENOSYS;
 #else
@@ -71,12 +75,12 @@ int uv__set_process_title(const char* title) {
   if (display_name_key == NULL || *display_name_key == NULL)
     return -ENOENT;
 
-  /* Force the process manager to initialize. */
+  /* Force the process manager to initialize. * /
   GetCurrentProcess(&psn);
 
   display_name = CFStringCreateWithCString(NULL, title, kCFStringEncodingUTF8);
   asn = ls_get_current_application_asn();
-  err = ls_set_application_information_item(-2,  /* Magic value. */
+  err = ls_set_application_information_item(-2,  /* Magic value. * /
                                             asn,
                                             *display_name_key,
                                             display_name,
@@ -86,4 +90,6 @@ int uv__set_process_title(const char* title) {
 
   return 0;
 #endif  /* !TARGET_OS_IPHONE */
+#endif /* 0 */
+  return -1;
 }
