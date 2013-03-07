@@ -214,6 +214,8 @@ int uv___stream_fd(uv_stream_t* handle);
 # define UV__F_NONBLOCK 1
 #endif
 
+int uv__make_pipe(int fds[2], int flags);
+
 #if defined(__APPLE__)
 typedef void (*cf_loop_signal_cb)(void*);
 
