@@ -63,7 +63,7 @@ static int uv__bind(uv_tcp_t* tcp,
   int err;
   int on;
 
-  err = maybe_new_socket(tcp, domain, UV_STREAM_READABLE | UV_STREAM_WRITABLE);
+   err = maybe_new_socket(tcp, domain, 0); *UV_STREAM_READABLE|UV_STREAM_WRITABLE))*/
   if (err)
     return err;
 

@@ -42,6 +42,8 @@ int uv_pipe_init(uv_loop_t* loop, uv_pipe_t* handle, int flags) {
           ((flags&UV_PIPE_SPAWN_SAFE)?UV_HANDLE_PIPE_SPAWN_SAFE:0)|
           ((flags&UV_PIPE_READABLE)?UV_STREAM_READABLE:0)|
           ((flags&UV_PIPE_WRITEABLE)?UV_STREAM_WRITABLE:0);
+  /*if (flags == 0 || flags == 1)
+      handle->flags |= UV_STREAM_READABLE|UV_STREAM_WRITABLE;*/
   return 0;
 }
 
