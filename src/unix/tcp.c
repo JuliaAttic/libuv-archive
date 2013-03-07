@@ -60,7 +60,7 @@ static int uv__bind(uv_tcp_t* tcp,
                     int addrsize) {
   int on;
 
-  if (maybe_new_socket(tcp, domain, UV_STREAM_READABLE|UV_STREAM_WRITABLE))
+  if (maybe_new_socket(tcp, domain, 0)) /*UV_STREAM_READABLE|UV_STREAM_WRITABLE))*/
     return -1;
 
   on = 1;
