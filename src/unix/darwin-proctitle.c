@@ -18,9 +18,12 @@
  * IN THE SOFTWARE.
  */
 
+#if 0
 #include <dlfcn.h>
 #include <errno.h>
 #include <stdlib.h>
+
+#include <Cocoa/Cocoa.h>
 
 #include <TargetConditionals.h>
 
@@ -28,7 +31,7 @@
 # include <CoreFoundation/CoreFoundation.h>
 # include <ApplicationServices/ApplicationServices.h>
 #endif
-
+#endif
 
 static int uv__pthread_setname_np(const char* name) {
   int (*dynamic_pthread_setname_np)(const char* name);
@@ -52,6 +55,7 @@ static int uv__pthread_setname_np(const char* name) {
 
 
 int uv__set_process_title(const char* title) {
+#if 0
 #if TARGET_OS_IPHONE
   return uv__pthread_setname_np(title);
 #else
@@ -200,4 +204,6 @@ out:
 
   return err;
 #endif  /* !TARGET_OS_IPHONE */
+#endif /* 0 */
+  return -1;
 }

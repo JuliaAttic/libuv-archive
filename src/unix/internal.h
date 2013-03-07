@@ -243,6 +243,8 @@ int uv___stream_fd(uv_stream_t* handle);
 # define UV__F_NONBLOCK 1
 #endif
 
+int uv__make_pipe(int fds[2], int flags);
+
 #if defined(__APPLE__)
 
 int uv__fsevents_init(uv_fs_event_t* handle);
