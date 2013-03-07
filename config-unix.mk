@@ -19,7 +19,7 @@
 # IN THE SOFTWARE.
 
 E=
-CFLAGS += -g -Wall -Wextra -Wno-unused-parameter
+CFLAGS += -g -Wall -Wextra -Wno-unused-parameter -fPIC
 CPPFLAGS += -I$(SRCDIR)/src
 LDFLAGS=-lm
 
