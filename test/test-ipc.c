@@ -643,7 +643,7 @@ int ipc_helper(int listen_after_write) {
 
   ASSERT(0 == uv_ip4_addr("0.0.0.0", TEST_PORT, &addr));
 
-  r = uv_pipe_init(uv_default_loop(), &channel, 1);
+  r = uv_pipe_init(uv_default_loop(), &channel, UV_PIPE_READABLE|UV_PIPE_WRITEABLE|UV_PIPE_IPC);
   ASSERT(r == 0);
 
   uv_pipe_open(&channel, 0);
@@ -693,7 +693,7 @@ int ipc_helper_tcp_connection(void) {
   int r;
   struct sockaddr_in addr;
 
-  r = uv_pipe_init(uv_default_loop(), &channel, 1);
+  r = uv_pipe_init(uv_default_loop(), &channel, UV_PIPE_READABLE|UV_PIPE_WRITEABLE|UV_PIPE_IPC);
   ASSERT(r == 0);
 
   uv_pipe_open(&channel, 0);
