@@ -68,7 +68,7 @@ static void recv_cb(uv_pipe_t* handle,
   ASSERT(nread >= 0);
 
   if (pending == UV_NAMED_PIPE)
-    r = uv_pipe_init(ctx.channel.loop, &ctx.recv.pipe, 0);
+    r = uv_pipe_init(ctx.channel.loop, &ctx.recv.pipe, UV_PIPE_READABLE|UV_PIPE_WRITEABLE);
   else if (pending == UV_TCP)
     r = uv_tcp_init(ctx.channel.loop, &ctx.recv.tcp);
   else
@@ -117,7 +117,7 @@ TEST_IMPL(ipc_send_recv_pipe) {
 
   ctx.expected_type = UV_NAMED_PIPE;
 
-  r = uv_pipe_init(uv_default_loop(), &ctx.send.pipe, 1);
+  r = uv_pipe_init(uv_default_loop(), &ctx.send.pipe, UV_PIPE_READABLE|UV_PIPE_WRITEABLE|UV_PIPE_IPC);
   ASSERT(r == 0);
 
   r = uv_pipe_bind(&ctx.send.pipe, TEST_PIPENAME);
@@ -172,7 +172,7 @@ static void read2_cb(uv_pipe_t* handle,
   buf = uv_buf_init(".", 1);
 
   if (pending == UV_NAMED_PIPE)
-    r = uv_pipe_init(ctx.channel.loop, &ctx.recv.pipe, 0);
+    r = uv_pipe_init(ctx.channel.loop, &ctx.recv.pipe, UV_PIPE_READABLE|UV_PIPE_WRITEABLE);
   else if (pending == UV_TCP)
     r = uv_tcp_init(ctx.channel.loop, &ctx.recv.tcp);
   else
@@ -199,7 +199,7 @@ int ipc_send_recv_helper(void) {
 
   memset(&ctx, 0, sizeof(ctx));
 
-  r = uv_pipe_init(uv_default_loop(), &ctx.channel, 1);
+  r = uv_pipe_init(uv_default_loop(), &ctx.channel, UV_PIPE_READABLE|UV_PIPE_WRITEABLE|UV_PIPE_IPC);
   ASSERT(r == 0);
 
   uv_pipe_open(&ctx.channel, 0);
