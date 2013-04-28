@@ -6,6 +6,7 @@
 *.pyc
 *.sdf
 *.suo
+*.lib
 core
 vgcore.*
 .buildstamp
