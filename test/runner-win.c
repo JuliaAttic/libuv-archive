@@ -108,7 +108,7 @@ int process_start(char *name, char *part, process_info_t *p, int is_helper) {
     goto error;
 
   if (part) {
-    if (_snwprintf((WCHAR*)args,
+    if (swprintf((WCHAR*)args,
                    sizeof(args) / sizeof(WCHAR),
                    L"\"%s\" %S %S",
                    image,
@@ -117,7 +117,7 @@ int process_start(char *name, char *part, process_info_t *p, int is_helper) {
       goto error;
     }
   } else {
-    if (_snwprintf((WCHAR*)args,
+    if (swprintf((WCHAR*)args,
                    sizeof(args) / sizeof(WCHAR),
                    L"\"%s\" %S",
                    image,
