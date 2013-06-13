@@ -760,7 +760,7 @@ void fs__readdir(uv_fs_t* req) {
     uv_fatal_error(ERROR_OUTOFMEMORY, "malloc");
   }
 
-  _snwprintf(path2, len + 3, fmt, pathw);
+  swprintf(path2, len + 3, fmt, pathw);
   dir = FindFirstFileW(path2, &ent);
   free(path2);
 
