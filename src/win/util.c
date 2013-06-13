@@ -659,7 +659,7 @@ int uv_cpu_info(uv_cpu_info_t** cpu_infos_ptr, int* cpu_count_ptr) {
     DWORD cpu_brand_size = sizeof(cpu_brand);
     size_t len;
 
-    len = _snwprintf(key_name,
+    len = swprintf(key_name,
                      ARRAY_SIZE(key_name),
                      L"HARDWARE\\DESCRIPTION\\System\\CentralProcessor\\%d",
                      i);
