@@ -26,7 +26,7 @@ typedef void *QUEUE[2];
 
 /* Public macros. */
 #define QUEUE_DATA(ptr, type, field)                                          \
-  ((type *) ((char *) (ptr) - ((long) &((type *) 0)->field)))
+  ((type *) ((char *) (ptr) - ((long long) &((type *) 0)->field)))
 
 #define QUEUE_FOREACH(q, h)                                                   \
   for ((q) = (QUEUE *) (*(h))[0]; (q) != (h); (q) = (QUEUE *) (*(q))[0])
