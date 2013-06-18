@@ -287,7 +287,7 @@ static void uv__process_child_init(const uv_process_options_t* options,
   _exit(127);
 }
 
-
+#include <signal.h>
 int uv_spawn(uv_loop_t* loop,
              uv_process_t* process,
              const uv_process_options_t* options) {
@@ -301,12 +301,25 @@ int uv_spawn(uv_loop_t* loop,
   int exec_errorno;
   int i;
 
+<<<<<<< HEAD
   assert(options->file != NULL);
   assert(!(options->flags & ~(UV_PROCESS_DETACHED |
                               UV_PROCESS_SETGID |
                               UV_PROCESS_SETUID |
                               UV_PROCESS_WINDOWS_HIDE |
                               UV_PROCESS_WINDOWS_VERBATIM_ARGUMENTS)));
+=======
+  assert(options.file != NULL);
+  assert(!(options.flags & ~(UV_PROCESS_DETACHED |
+                             UV_PROCESS_SETGID |
+                             UV_PROCESS_SETUID |
+                             UV_PROCESS_WINDOWS_HIDE |
+                             UV_PROCESS_WINDOWS_VERBATIM_ARGUMENTS)));
+  
+  sigset_t sigset, sigoset;
+  sigfillset(&sigset);
+  sigprocmask(SIG_SETMASK, &sigset, &sigoset);
+>>>>>>> protect uv_spawn from signals (fix timholy/Profile.jl#16)
 
   uv__handle_init(loop, (uv_handle_t*)process, UV_PROCESS);
   QUEUE_INIT(&process->queue);
@@ -355,9 +368,13 @@ int uv_spawn(uv_loop_t* loop,
     goto error;
 
   uv_signal_start(&loop->child_watcher, uv__chld, SIGCHLD);
+<<<<<<< HEAD
 
   /* Acquire write lock to prevent opening new fds in worker threads */
   uv_rwlock_wrlock(&loop->cloexec_lock);
+=======
+  
+>>>>>>> protect uv_spawn from signals (fix timholy/Profile.jl#16)
   pid = fork();
 
   if (pid == -1) {
@@ -369,6 +386,7 @@ int uv_spawn(uv_loop_t* loop,
   }
 
   if (pid == 0) {
+    sigprocmask(SIG_SETMASK, &sigoset, NULL);
     uv__process_child_init(options, stdio_count, pipes, signal_pipe[1]);
     abort();
   }
@@ -405,6 +423,7 @@ int uv_spawn(uv_loop_t* loop,
   process->exit_cb = options->exit_cb;
 
   free(pipes);
+  sigprocmask(SIG_SETMASK, &sigoset, NULL);
   return exec_errorno;
 
 error:
@@ -414,6 +433,9 @@ error:
     close(pipes[i][0]);
     close(pipes[i][1]);
   }
+
+  free(pipes);
+  sigprocmask(SIG_SETMASK, &sigoset, NULL);
 
   return err;
 }
