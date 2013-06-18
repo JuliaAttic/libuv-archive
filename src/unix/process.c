@@ -291,7 +291,7 @@ static void uv__process_child_init(const uv_process_options_t* options,
   _exit(127);
 }
 
-
+#include <signal.h>
 int uv_spawn(uv_loop_t* loop,
              uv_process_t* process,
              const uv_process_options_t* options) {
@@ -304,7 +304,7 @@ int uv_spawn(uv_loop_t* loop,
   int err;
   int exec_errorno;
   int i;
-
+  
   assert(options->file != NULL);
   assert(!(options->flags & ~(UV_PROCESS_DETACHED |
                               UV_PROCESS_SETGID |
@@ -360,8 +360,13 @@ int uv_spawn(uv_loop_t* loop,
 
   uv_signal_start(&loop->child_watcher, uv__chld, SIGCHLD);
 
+  sigset_t sigset, sigoset;
+  sigfillset(&sigset);
+  sigprocmask(SIG_SETMASK, &sigset, &sigoset);
+
   /* Acquire write lock to prevent opening new fds in worker threads */
   uv_rwlock_wrlock(&loop->cloexec_lock);
+
   pid = fork();
 
   if (pid == -1) {
@@ -373,6 +378,7 @@ int uv_spawn(uv_loop_t* loop,
   }
 
   if (pid == 0) {
+    sigprocmask(SIG_SETMASK, &sigoset, NULL);
     uv__process_child_init(options, stdio_count, pipes, signal_pipe[1]);
     abort();
   }
@@ -409,6 +415,7 @@ int uv_spawn(uv_loop_t* loop,
   process->exit_cb = options->exit_cb;
 
   free(pipes);
+  sigprocmask(SIG_SETMASK, &sigoset, NULL);
   return exec_errorno;
 
 error:
@@ -419,6 +426,9 @@ error:
         close(pipes[i]);
     }
   }
+
+  free(pipes);
+  sigprocmask(SIG_SETMASK, &sigoset, NULL);
 
   return err;
 }
