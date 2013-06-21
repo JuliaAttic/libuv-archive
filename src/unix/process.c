@@ -288,6 +288,12 @@ static void uv__process_child_init(const uv_process_options_t* options,
     _exit(127);
   }
 
+  if ((options->flags & UV_PROCESS_RESET_SIGPIPE) && signal(SIGPIPE,SIG_DFL) == SIG_ERR)
+  {
+    uv__write_int(error_fd, -errno);
+    _exit(127);
+  }
+
   if (options->env != NULL) {
     environ = options->env;
   }
@@ -318,7 +324,8 @@ int uv_spawn(uv_loop_t* loop,
                               UV_PROCESS_SETGID |
                               UV_PROCESS_SETUID |
                               UV_PROCESS_WINDOWS_HIDE |
-                              UV_PROCESS_WINDOWS_VERBATIM_ARGUMENTS)));
+                              UV_PROCESS_WINDOWS_VERBATIM_ARGUMENTS |
+                              UV_PROCESS_RESET_SIGPIPE)));
 
   uv__handle_init(loop, (uv_handle_t*)process, UV_PROCESS);
   QUEUE_INIT(&process->queue);
