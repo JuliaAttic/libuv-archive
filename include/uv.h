@@ -1596,7 +1596,12 @@ enum uv_process_flags {
    * option is only meaningful on Windows systems. On unix it is silently
    * ignored.
    */
-  UV_PROCESS_WINDOWS_HIDE = (1 << 4)
+  UV_PROCESS_WINDOWS_HIDE = (1 << 4),
+  /*
+   * Reset SIGPIPE to the default handler. Useful for parent processes that ignore 
+   * SIGPIPE, but don't want to make the same assumption for child processes
+   */
+  UV_PROCESS_RESET_SIGPIPE = (1 << 5)
 };
 
 /*
