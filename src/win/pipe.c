@@ -104,7 +104,7 @@ int uv_pipe_init(uv_loop_t* loop, uv_pipe_t* handle, int flags) {
   handle->flags |= ((flags&UV_PIPE_IPC)?UV_HANDLE_PIPE_IPC:0)|
                     ((flags&UV_PIPE_SPAWN_SAFE)?UV_HANDLE_PIPE_SPAWN_SAFE:0)|
                     ((flags&UV_PIPE_READABLE)?UV_HANDLE_READABLE:0)|
-                    ((flags&UV_PIPE_WRITEABLE)?UV_HANDLE_WRITABLE:0);
+                    ((flags&UV_PIPE_WRITABLE)?UV_HANDLE_WRITABLE:0);
 
   uv_req_init(loop, (uv_req_t*) &handle->ipc_header_write_req);
 
