@@ -185,7 +185,7 @@ TEST_IMPL(spawn_stdout) {
   init_process_options("spawn_helper2", exit_cb);
 
   uv_pipe_init(uv_default_loop(), &out, UV_PIPE_READABLE);
-  uv_pipe_init(uv_default_loop(), &child_stdout, UV_PIPE_SPAWN_SAFE|UV_PIPE_WRITEABLE);
+  uv_pipe_init(uv_default_loop(), &child_stdout, UV_PIPE_SPAWN_SAFE|UV_PIPE_WRITABLE);
   r = uv_pipe_link(&out,&child_stdout);
   ASSERT(r == 0);
 
@@ -284,9 +284,9 @@ TEST_IMPL(spawn_stdin) {
   init_process_options("spawn_helper3", exit_cb);
 
   uv_pipe_init(uv_default_loop(), &out, UV_PIPE_READABLE);
-  uv_pipe_init(uv_default_loop(), &in, UV_PIPE_WRITEABLE);
+  uv_pipe_init(uv_default_loop(), &in, UV_PIPE_WRITABLE);
   uv_pipe_init(uv_default_loop(), &child_pipes[0], UV_PIPE_READABLE|UV_PIPE_SPAWN_SAFE);
-  uv_pipe_init(uv_default_loop(), &child_pipes[1], UV_PIPE_WRITEABLE|UV_PIPE_SPAWN_SAFE);
+  uv_pipe_init(uv_default_loop(), &child_pipes[1], UV_PIPE_WRITABLE|UV_PIPE_SPAWN_SAFE);
   r = uv_pipe_link(&child_pipes[0],&in);
   ASSERT(r == 0);
   r = uv_pipe_link(&out,&child_pipes[1]);
@@ -337,7 +337,7 @@ TEST_IMPL(spawn_stdio_greater_than_3) {
   init_process_options("spawn_helper5", exit_cb);
 
   uv_pipe_init(uv_default_loop(), &pipe, UV_PIPE_READABLE);
-  uv_pipe_init(uv_default_loop(), &child_pipe, UV_PIPE_WRITEABLE|UV_PIPE_SPAWN_SAFE);
+  uv_pipe_init(uv_default_loop(), &child_pipe, UV_PIPE_WRITABLE|UV_PIPE_SPAWN_SAFE);
   r = uv_pipe_link(&pipe,&child_pipe);
   ASSERT(r == 0);
   options.stdio = stdio;
@@ -424,7 +424,7 @@ TEST_IMPL(spawn_preserve_env) {
   init_process_options("spawn_helper7", exit_cb);
   
   uv_pipe_init(uv_default_loop(), &out, UV_PIPE_READABLE);
-  uv_pipe_init(uv_default_loop(), &child_out, UV_PIPE_WRITEABLE|UV_PIPE_SPAWN_SAFE);
+  uv_pipe_init(uv_default_loop(), &child_out, UV_PIPE_WRITABLE|UV_PIPE_SPAWN_SAFE);
   r = uv_pipe_link(&out,&child_out);
   ASSERT(r == 0);
 
@@ -503,7 +503,7 @@ TEST_IMPL(spawn_and_kill_with_std) {
 
   init_process_options("spawn_helper4", kill_cb);
 
-  r = uv_pipe_init(uv_default_loop(), &in, UV_PIPE_WRITEABLE);
+  r = uv_pipe_init(uv_default_loop(), &in, UV_PIPE_WRITABLE);
   ASSERT(r == 0);
  
   r = uv_pipe_init(uv_default_loop(), &child_pipes[0], UV_PIPE_READABLE|
@@ -512,14 +512,14 @@ TEST_IMPL(spawn_and_kill_with_std) {
   r = uv_pipe_init(uv_default_loop(), &out, UV_PIPE_READABLE);
   ASSERT(r == 0);
 
-  r = uv_pipe_init(uv_default_loop(), &child_pipes[1], UV_PIPE_WRITEABLE|
+  r = uv_pipe_init(uv_default_loop(), &child_pipes[1], UV_PIPE_WRITABLE|
 														UV_PIPE_SPAWN_SAFE);
   ASSERT(r == 0);
 
   r = uv_pipe_init(uv_default_loop(), &err, UV_PIPE_READABLE);
   ASSERT(r == 0);
 
-  r = uv_pipe_init(uv_default_loop(), &child_pipes[2], UV_PIPE_WRITEABLE|
+  r = uv_pipe_init(uv_default_loop(), &child_pipes[2], UV_PIPE_WRITABLE|
 														UV_PIPE_SPAWN_SAFE);
   ASSERT(r == 0);
 
@@ -585,11 +585,11 @@ TEST_IMPL(spawn_and_ping) {
   buf = uv_buf_init("TEST", 4);
 
   uv_pipe_init(uv_default_loop(), &child_pipes[0], UV_PIPE_READABLE|UV_PIPE_SPAWN_SAFE);
-  uv_pipe_init(uv_default_loop(), &in, UV_PIPE_WRITEABLE);
+  uv_pipe_init(uv_default_loop(), &in, UV_PIPE_WRITABLE);
   r = uv_pipe_link(&child_pipes[0],&in);
   ASSERT(r == 0);
   uv_pipe_init(uv_default_loop(), &out, UV_PIPE_READABLE);
-  uv_pipe_init(uv_default_loop(), &child_pipes[1], UV_PIPE_WRITEABLE|UV_PIPE_SPAWN_SAFE);
+  uv_pipe_init(uv_default_loop(), &child_pipes[1], UV_PIPE_WRITABLE|UV_PIPE_SPAWN_SAFE);
   r = uv_pipe_link(&out,&child_pipes[1]);
   ASSERT(r == 0);
   options.stdio = stdio;
@@ -675,7 +675,7 @@ TEST_IMPL(spawn_detect_pipe_name_collisions_on_windows) {
   init_process_options("spawn_helper2", exit_cb);
 
   uv_pipe_init(uv_default_loop(), &out, UV_PIPE_READABLE);
-  uv_pipe_init(uv_default_loop(), &child_stdout, UV_PIPE_WRITEABLE|UV_PIPE_SPAWN_SAFE);
+  uv_pipe_init(uv_default_loop(), &child_stdout, UV_PIPE_WRITABLE|UV_PIPE_SPAWN_SAFE);
 
   /* Create a pipe that'll cause a collision. */
   _snprintf(name, sizeof(name), "\\\\.\\pipe\\uv\\%p-%d", &out, GetCurrentProcessId());
