@@ -1164,7 +1164,7 @@ enum uv_pipe_flags {
 	UV_PIPE_IPC			 = 0x01,
 	UV_PIPE_SPAWN_SAFE	 = 0x02,
 	UV_PIPE_READABLE	 = 0x04,
-	UV_PIPE_WRITEABLE	 = 0x08
+	UV_PIPE_WRITABLE	 = 0x08
 };
 /*
  * Initialize a pipe. The last argument is a boolean to indicate if
