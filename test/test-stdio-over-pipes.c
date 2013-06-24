@@ -123,12 +123,12 @@ TEST_IMPL(stdio_over_pipes) {
   init_process_options("stdio_over_pipes_helper", exit_cb);
 
   uv_pipe_init(loop, &child_pipes[0], UV_PIPE_SPAWN_SAFE|UV_PIPE_READABLE);
-  uv_pipe_init(loop, &in, UV_PIPE_WRITEABLE);
+  uv_pipe_init(loop, &in, UV_PIPE_WRITABLE);
   r = uv_pipe_link(&child_pipes[0],&in);
   ASSERT( r == 0 );
   
   uv_pipe_init(loop, &out, UV_PIPE_READABLE);
-  uv_pipe_init(loop, &child_pipes[1], UV_PIPE_SPAWN_SAFE|UV_PIPE_WRITEABLE);
+  uv_pipe_init(loop, &child_pipes[1], UV_PIPE_SPAWN_SAFE|UV_PIPE_WRITABLE);
   r = uv_pipe_link(&out,&child_pipes[1]);
   ASSERT( r == 0 );
 
