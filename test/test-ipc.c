@@ -204,10 +204,10 @@ void spawn_helper(uv_pipe_t* channel,
   uv_pipe_t child_channel;
 
   r = uv_pipe_init(uv_default_loop(), channel,
-	  UV_PIPE_READABLE|UV_PIPE_WRITEABLE|UV_PIPE_IPC);
+	  UV_PIPE_READABLE|UV_PIPE_WRITABLE|UV_PIPE_IPC);
   ASSERT(r == 0);
   r = uv_pipe_init(uv_default_loop(), &child_channel,
-	  UV_PIPE_READABLE|UV_PIPE_WRITEABLE);
+	  UV_PIPE_READABLE|UV_PIPE_WRITABLE);
   ASSERT(r == 0);
   r = uv_pipe_link(&child_channel,channel);
   ASSERT(r == 0);
@@ -544,7 +544,7 @@ int ipc_helper(int listen_after_write) {
   int r;
   uv_buf_t buf;
 
-  r = uv_pipe_init(uv_default_loop(), &channel, UV_PIPE_READABLE|UV_PIPE_WRITEABLE|UV_PIPE_IPC);
+  r = uv_pipe_init(uv_default_loop(), &channel, UV_PIPE_READABLE|UV_PIPE_WRITABLE|UV_PIPE_IPC);
   ASSERT(r == 0);
 
   uv_pipe_open(&channel, 0);
@@ -594,7 +594,7 @@ int ipc_helper_tcp_connection(void) {
   int r;
   struct sockaddr_in addr;
 
-  r = uv_pipe_init(uv_default_loop(), &channel, UV_PIPE_READABLE|UV_PIPE_WRITEABLE|UV_PIPE_IPC);
+  r = uv_pipe_init(uv_default_loop(), &channel, UV_PIPE_READABLE|UV_PIPE_WRITABLE|UV_PIPE_IPC);
   ASSERT(r == 0);
 
   uv_pipe_open(&channel, 0);

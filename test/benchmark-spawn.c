@@ -116,7 +116,7 @@ static void spawn(void) {
   options.exit_cb = exit_cb;
 
   uv_pipe_init(loop, &out, UV_PIPE_READABLE);
-  uv_pipe_init(loop, &child_stdout, UV_PIPE_SPAWN_SAFE|UV_PIPE_WRITEABLE);
+  uv_pipe_init(loop, &child_stdout, UV_PIPE_SPAWN_SAFE|UV_PIPE_WRITABLE);
   r = uv_pipe_link(&out,&child_stdout);
   ASSERT( r == 0 );
 
