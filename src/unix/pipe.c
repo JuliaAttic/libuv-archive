@@ -99,46 +99,27 @@ err_socket:
 }
 
 int uv_pipe_link(uv_pipe_t *read, uv_pipe_t *write) {
-  int err;
   int fds[2];
+  int err;
+  int flags;
 
   assert(read->loop==write->loop);
   assert(read->flags&UV_STREAM_READABLE);
   assert(write->flags&UV_STREAM_WRITABLE);
   assert(!(write->flags&read->flags&UV__PIPE_IPC));
 
-#ifdef SOCK_NONBLOCK
-  int fl;
+  flags = ((read->flags & UV_PIPE_SPAWN_SAFE)==(write->flags & UV_PIPE_SPAWN_SAFE) && 
+          (write->flags & UV_PIPE_SPAWN_SAFE) != 0) ? UV__F_NONBLOCK : 0;
 
-  fl = SOCK_CLOEXEC;
+  uv__make_pipe(fds,flags);
 
-  if (~((read->flags|write->flags)&UV_PIPE_SPAWN_SAFE)) {
-    if (socketpair(AF_UNIX, SOCK_STREAM|SOCK_NONBLOCK|fl, 0, fds) == 0)
-        goto open_fds;
-
-    if (errno != EINVAL)
-      goto pipe_error;
-    /* errno == EINVAL so maybe the kernel headers lied about
-     * the availability of SOCK_NONBLOCK. This can happen if people
-     * build libuv against newer kernel headers than the kernel
-     * they actually run the software on.
-     */
+  if(flags == 0) {
+    if (~(read->flags & UV_PIPE_SPAWN_SAFE))
+      uv__nonblock(fds[0], 1);
+    if (~(write->flags & UV_PIPE_SPAWN_SAFE))
+      uv__nonblock(fds[1], 1);
   }
-#endif
 
-  if (socketpair(AF_UNIX, SOCK_STREAM, 0, fds))
-    goto pipe_error;
-
-  uv__cloexec(fds[0], 1);
-  uv__cloexec(fds[1], 1);
-
-  if (~(read->flags & UV_PIPE_SPAWN_SAFE))
-    uv__nonblock(fds[0], 1);
-  if (~(write->flags & UV_PIPE_SPAWN_SAFE))
-    uv__nonblock(fds[1], 1);
-
-open_fds: 
-  
   err = uv__stream_open((uv_stream_t*)read, fds[0], 0);
   if (err) {
       close(fds[0]);
