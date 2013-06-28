@@ -223,7 +223,7 @@ static void uv__process_child_init(const uv_process_options_t* options,
 
         if (use_fd == -1) {
           uv__write_int(error_fd, -errno);
-          perror("failed to open stdio");
+          // perror("failed to open stdio");
           _exit(127);
         }
       }
@@ -250,7 +250,7 @@ static void uv__process_child_init(const uv_process_options_t* options,
 
   if (options->cwd != NULL && chdir(options->cwd)) {
     uv__write_int(error_fd, -errno);
-    perror("chdir()");
+    /* perror("chdir()"); */
     _exit(127);
   }
 
@@ -267,20 +267,20 @@ static void uv__process_child_init(const uv_process_options_t* options,
 
   if ((options->flags & UV_PROCESS_SETGID) && setgid(options->gid)) {
     uv__write_int(error_fd, -errno);
-    perror("setgid()");
+    /* perror("setgid()"); */
     _exit(127);
   }
 
   if ((options->flags & UV_PROCESS_SETUID) && setuid(options->uid)) {
     uv__write_int(error_fd, -errno);
-    perror("setuid()");
+    /* perror("setuid()"); */
     _exit(127);
   }
 
   if ((options.flags & UV_PROCESS_RESET_SIGPIPE) && signal(SIGPIPE,SIG_DFL) == SIG_ERR)
   {
     uv__write_int(error_fd, errno);
-    perror("signal()");
+    /* perror("signal()"); */
     _exit(127);
   }
 
@@ -290,7 +290,7 @@ static void uv__process_child_init(const uv_process_options_t* options,
 
   execvp(options->file, options->args);
   uv__write_int(error_fd, -errno);
-  perror("execvp()");
+  /* perror("execvp()"); */
   _exit(127);
 }
 
@@ -308,14 +308,6 @@ int uv_spawn(uv_loop_t* loop,
   int exec_errorno;
   int i;
 
-<<<<<<< HEAD
-  assert(options->file != NULL);
-  assert(!(options->flags & ~(UV_PROCESS_DETACHED |
-                              UV_PROCESS_SETGID |
-                              UV_PROCESS_SETUID |
-                              UV_PROCESS_WINDOWS_HIDE |
-                              UV_PROCESS_WINDOWS_VERBATIM_ARGUMENTS)));
-=======
   assert(options.file != NULL);
   assert(!(options.flags & ~(UV_PROCESS_DETACHED |
                              UV_PROCESS_SETGID |
@@ -327,7 +319,6 @@ int uv_spawn(uv_loop_t* loop,
   sigset_t sigset, sigoset;
   sigfillset(&sigset);
   sigprocmask(SIG_SETMASK, &sigset, &sigoset);
->>>>>>> protect uv_spawn from signals (fix timholy/Profile.jl#16)
 
   uv__handle_init(loop, (uv_handle_t*)process, UV_PROCESS);
   QUEUE_INIT(&process->queue);
@@ -376,13 +367,10 @@ int uv_spawn(uv_loop_t* loop,
     goto error;
 
   uv_signal_start(&loop->child_watcher, uv__chld, SIGCHLD);
-<<<<<<< HEAD
 
   /* Acquire write lock to prevent opening new fds in worker threads */
   uv_rwlock_wrlock(&loop->cloexec_lock);
-=======
-  
->>>>>>> protect uv_spawn from signals (fix timholy/Profile.jl#16)
+
   pid = fork();
 
   if (pid == -1) {
