@@ -1347,10 +1347,10 @@ static void uv__stream_io(uv_loop_t* loop, uv__io_t* w, unsigned int events) {
    * have to do anything. If the partial read flag is not set, we can't
    * report the EOF yet because there is still data to read.
    */
-  if ((events & POLLHUP) &&
-      (stream->flags & UV_HANDLE_READING) &&
+  if ((events & POLLHUP) && ((events == POLLHUP) ||
+      ((stream->flags & UV_HANDLE_READING) &&
       (stream->flags & UV_HANDLE_READ_PARTIAL) &&
-      !(stream->flags & UV_HANDLE_READ_EOF)) {
+      !(stream->flags & UV_HANDLE_READ_EOF)))) {
     uv_buf_t buf = { NULL, 0 };
     uv__stream_eof(stream, &buf);
   }
