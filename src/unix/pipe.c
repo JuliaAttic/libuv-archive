@@ -120,14 +120,14 @@ int uv_pipe_link(uv_pipe_t *read, uv_pipe_t *write) {
       uv__nonblock(fds[1], 1);
   }
 
-  err = uv__stream_open((uv_stream_t*)read, fds[0], 0);
+  err = uv__stream_open((uv_stream_t*)read, fds[0], UV_STREAM_READABLE);
   if (err) {
       close(fds[0]);
       close(fds[1]);
       goto pipe_error;
   }
 
-  err = uv__stream_open((uv_stream_t*)write, fds[1], 0);
+  err = uv__stream_open((uv_stream_t*)write, fds[1], UV_STREAM_WRITABLE);
   if (err) {
       uv_pipe_close_sync(read);
       close(fds[0]);
