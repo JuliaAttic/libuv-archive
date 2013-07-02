@@ -1144,7 +1144,7 @@ static void uv__stream_io(uv_loop_t* loop, uv__io_t* w, unsigned int events) {
    */
   if ((events & UV__POLLHUP) && (
       (stream->flags & UV_STREAM_READING) &&
-      !(stream->flags & UV_STREAM_READ_PARTIAL) &&
+      (stream->flags & UV_STREAM_READ_PARTIAL) &&
       !(stream->flags & UV_STREAM_READ_EOF))) {
     uv_buf_t buf = { NULL, 0 };
     uv__stream_eof(stream, buf);
