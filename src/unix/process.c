@@ -426,8 +426,6 @@ error:
   for (i = 0; i < stdio_count; i++) {
     if (options.stdio[i].type == UV_STREAM && options.stdio[i].data.stream == NULL)
       close(pipes[i]);
-    close(pipes[i][0]);
-    close(pipes[i][1]);
   }
 
   free(pipes);
