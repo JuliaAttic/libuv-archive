@@ -307,7 +307,7 @@ int uv_spawn(uv_loop_t* loop,
   }
 
   for (i = 0; i < options.stdio_count; i++) {
-    err = uv__process_init_stdio(options.stdio + i, pipes[i]);
+    err = uv__process_init_stdio(options.stdio + i, &pipes[i]);
     if (err)
       goto error;
   }
@@ -386,8 +386,6 @@ error:
   for (i = 0; i < stdio_count; i++) {
     if (options.stdio[i].type == UV_STREAM && options.stdio[i].data.stream == NULL)
       close(pipes[i]);
-    close(pipes[i][0]);
-    close(pipes[i][1]);
   }
   free(pipes);
   sigprocmask(SIG_SETMASK, &sigoset, NULL);
