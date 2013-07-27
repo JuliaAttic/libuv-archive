@@ -10,11 +10,13 @@ core
 vgcore.*
 .buildstamp
 
-/.deps/
-/.libs/
+.deps/
+.dirstamp
+.libs/
 /autom4te.cache/
 /config.log
 /config.status
+/libtool
 /libuv.a
 /libuv.dylib
 /libuv.pc
@@ -27,12 +29,12 @@ Makefile
 /out/
 /build/gyp
 
-/run-tests
-/run-tests.exe
-/run-tests.dSYM
-/run-benchmarks
-/run-benchmarks.exe
-/run-benchmarks.dSYM
+run-tests
+run-tests.exe
+run-tests.dSYM
+run-benchmarks
+run-benchmarks.exe
+run-benchmarks.dSYM
 
 *.sln
 *.vcproj
