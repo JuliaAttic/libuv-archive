@@ -14,6 +14,7 @@
 
 AC_PREREQ(2.57)
 AC_INIT([libuv], [0.11.20], [https://github.com/joyent/libuv/issues])
+AM_INIT_AUTOMAKE([foreign subdir-objects -Wall -Werror])
 AC_CONFIG_MACRO_DIR([m4])
 m4_include([m4/libuv-extra-automake-flags.m4])
 AM_INIT_AUTOMAKE([-Wall -Werror foreign subdir-objects] UV_EXTRA_AUTOMAKE_FLAGS)
