@@ -101,7 +101,6 @@ libuv_la_SOURCES += src/unix/async.c \
                    src/unix/timer.c \
                    src/unix/tty.c \
                    src/unix/udp.c
-
 endif  # WINNT
 
 TESTS = test/run-tests

@@ -35,7 +35,7 @@
 #include <iphlpapi.h>
 #include <psapi.h>
 #include <tlhelp32.h>
-#include <windows.h>
+#include <winperf.h>
 
 
 /*

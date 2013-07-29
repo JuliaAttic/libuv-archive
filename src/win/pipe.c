@@ -209,14 +209,14 @@ int uv_stdio_pipe_server(uv_loop_t* loop, uv_pipe_t* handle, DWORD access,
 
   return err;
 }
-static uv_err_t uv__create_stdio_pipe_pair(uv_loop_t* loop,
+static int uv__create_stdio_pipe_pair(uv_loop_t* loop,
     uv_pipe_t* read, uv_pipe_t* write) {
   char pipe_name[64];
   SECURITY_ATTRIBUTES sa;
   DWORD server_access = 0;
   DWORD client_access = 0;
   uv_pipe_t *server_pipe, *client_pipe;
-  uv_err_t err;
+  int err;
   
   if (read->flags & UV_HANDLE_PIPE_SPAWN_SAFE || write->flags & UV_HANDLE_PIPE_IPC) {
     /* server_pipe is always owned by libuv, is never SPAWN_SAFE */
@@ -245,7 +245,7 @@ static uv_err_t uv__create_stdio_pipe_pair(uv_loop_t* loop,
                              server_access,
                              pipe_name,
                              sizeof(pipe_name));
-  if (err.code != UV_OK)
+  if (err != 0)
     goto error;
 
   /* Create child pipe handle. */
@@ -261,7 +261,7 @@ static uv_err_t uv__create_stdio_pipe_pair(uv_loop_t* loop,
                            (client_pipe->flags&UV_HANDLE_PIPE_SPAWN_SAFE) ? 0 : FILE_FLAG_OVERLAPPED,
                            NULL);
   if (client_pipe->handle == INVALID_HANDLE_VALUE) {
-    err = uv__new_sys_error(GetLastError());
+    err = GetLastError();
     goto error;
   }
 
@@ -285,7 +285,7 @@ static uv_err_t uv__create_stdio_pipe_pair(uv_loop_t* loop,
   /* both ends of the pipe created. */
   if (!ConnectNamedPipe(server_pipe->handle, NULL)) {
     if (GetLastError() != ERROR_PIPE_CONNECTED) {
-      err = uv__new_sys_error(GetLastError());
+      err = GetLastError();
       goto error;
     }
   }
@@ -295,7 +295,7 @@ static uv_err_t uv__create_stdio_pipe_pair(uv_loop_t* loop,
   }
   uv_pipe_connection_init(client_pipe);
 
-  return uv_ok_;
+  return 0;
 
  error:
   if (server_pipe->handle != INVALID_HANDLE_VALUE) {
@@ -318,8 +318,7 @@ int uv_pipe_link(uv_pipe_t* read, uv_pipe_t* write)
     assert(!(write->flags&read->flags&UV_HANDLE_PIPE_IPC));
     if (read->flags & write->flags & UV_HANDLE_PIPE_SPAWN_SAFE) {
         if (!CreatePipe(&(read->handle),&(write->handle),NULL,65536)) {
-            uv__set_sys_error(read->loop, GetLastError());
-            err = -1;
+            err = GetLastError();
             goto done;
         }
         read->flags |= UV_HANDLE_NON_OVERLAPPED_PIPE;
@@ -328,8 +327,7 @@ int uv_pipe_link(uv_pipe_t* read, uv_pipe_t* write)
         uv_pipe_connection_init(write);
         err = 0;
     } else {
-        uv_err_t uverr = uv__create_stdio_pipe_pair(read->loop,read,write);
-        err = (uverr.code == UV_OK) ? 0 : -1;
+        err = uv__create_stdio_pipe_pair(read->loop,read,write);
         if (read->flags&UV_HANDLE_PIPE_IPC) {
             write->flags |= UV_HANDLE_PIPE_IPC_CLIENT;
             write->ipc_pid.p_pid = &(read->ipc_pid.pid);
@@ -1218,7 +1216,7 @@ static int uv_pipe_write_impl(uv_loop_t* loop,
     if (send_handle) {
       tcp_send_handle = (uv_tcp_t*)send_handle;
 
-      err = uv_tcp_duplicate_socket(tcp_send_handle, handle->ipc_pid,
+      err = uv_tcp_duplicate_socket(tcp_send_handle, handle->ipc_pid.pid,
           &ipc_frame.socket_info);
       if (err) {
         return err;
