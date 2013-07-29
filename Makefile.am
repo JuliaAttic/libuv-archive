@@ -15,8 +15,9 @@
 ACLOCAL_AMFLAGS = -I m4
 
 AM_CPPFLAGS = -I$(top_srcdir)/include \
-              -I$(top_srcdir)/src/unix \
               -I$(top_srcdir)/src
+
+
 
 include_HEADERS=include/uv.h include/uv-errno.h include/uv-unix.h
 
@@ -29,8 +30,11 @@ libuv_la_SOURCES = src/fs-poll.c \
                    src/inet.c \
                    src/uv-common.c \
                    src/uv-common.h \
-                   src/version.c \
-                   src/unix/async.c \
+                   src/version.c 
+
+if !WINNT
+AM_CPPFLAGS += -I$(top_srcdir)/src/unix 
+libuv_la_SOURCES += src/unix/async.c \
                    src/unix/core.c \
                    src/unix/dl.c \
                    src/unix/fs.c \
@@ -49,6 +53,34 @@ libuv_la_SOURCES = src/fs-poll.c \
                    src/unix/timer.c \
                    src/unix/tty.c \
                    src/unix/udp.c
+else 
+AM_CPPFLAGS += -I$(top_srcdir)/src/win -DWINNT_VERSION=0x600 -DWIN32_LEAN_AND_MEAN
+libuv_la_SOURCES += src/win/async.o \
+                   src/win/core.o \
+                   src/win/dl.o \
+                   src/win/error.o \
+                   src/win/fs-event.o \
+                   src/win/fs.o \
+                   src/win/getaddrinfo.o \
+                   src/win/handle.o \
+                   src/win/loop-watcher.o \
+                   src/win/pipe.o \
+                   src/win/poll.o \
+                   src/win/process-stdio.o \
+                   src/win/process.o \
+                   src/win/req.o \
+                   src/win/signal.o \
+                   src/win/stream.o \
+                   src/win/tcp.o \
+                   src/win/thread.o \
+                   src/win/threadpool.o \
+                   src/win/timer.o \
+                   src/win/tty.o \
+                   src/win/udp.o \
+                   src/win/util.o \
+                   src/win/winapi.o \
+                   src/win/winsock.o 
+endif
 
 TESTS = test/run-tests
 check_PROGRAMS = test/run-tests

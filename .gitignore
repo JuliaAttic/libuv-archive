@@ -9,7 +9,7 @@
 core
 vgcore.*
 .buildstamp
-
+/libtool
 /.deps/
 /.libs/
 /aclocal.m4
