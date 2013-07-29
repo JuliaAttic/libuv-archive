@@ -19,7 +19,7 @@ AM_CPPFLAGS = -I$(top_srcdir)/include \
 
 
 
-include_HEADERS=include/uv.h include/uv-errno.h
+include_HEADERS=include/uv.h include/uv-errno.h include/tree.h
 
 CLEANFILES =
 
