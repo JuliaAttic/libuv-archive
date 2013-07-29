@@ -35,7 +35,7 @@
 #include <iphlpapi.h>
 #include <psapi.h>
 #include <tlhelp32.h>
-
+#include <winperf.h>
 
 /*
  * Max title length; the only thing MSDN tells us about the maximum length

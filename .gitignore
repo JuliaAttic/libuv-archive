@@ -9,12 +9,11 @@
 core
 vgcore.*
 .buildstamp
-
 .deps/
 .dirstamp
 .libs/
+/libtool
 /autom4te.cache/
-/compile
 /config.log
 /config.status
 /libtool

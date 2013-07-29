@@ -349,7 +349,7 @@ static void uv_tty_queue_read_line(uv_loop_t* loop, uv_tty_t* handle) {
 
   handle->read_line_buffer = handle->alloc_cb((uv_handle_t*) handle, 8192);
   if (handle->read_line_buffer.len == 0) {
-    handle->read_cb(handle, UV_ENOBUFS, handle->read_line_buffer);
+    handle->read_cb((uv_stream_t*)handle, UV_ENOBUFS, handle->read_line_buffer);
     return;
   }
   assert(handle->read_line_buffer.base != NULL);

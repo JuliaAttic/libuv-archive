@@ -94,7 +94,7 @@ void uv_disable_stdio_inheritance(void) {
 }
 
 
-static uv_err_t uv__duplicate_handle(uv_loop_t* loop, HANDLE handle, HANDLE* dup) {
+static int uv__duplicate_handle(uv_loop_t* loop, HANDLE handle, HANDLE* dup) {
   HANDLE current_process;
 
 
@@ -123,11 +123,11 @@ static uv_err_t uv__duplicate_handle(uv_loop_t* loop, HANDLE handle, HANDLE* dup
     return GetLastError();
   }
 
-  return uv_ok_;
+  return 0;
 }
 
 
-static uv_err_t uv__duplicate_fd(uv_loop_t* loop, int fd, HANDLE* dup) {
+static int uv__duplicate_fd(uv_loop_t* loop, int fd, HANDLE* dup) {
   HANDLE handle;
 
   if (fd == -1) {
@@ -212,16 +212,15 @@ int uv__stdio_create(uv_loop_t* loop, uv_process_options_t* options,
           case UV_RAW_FD:
             /* Make an inheritable duplicate of the handle. */
             err = uv__duplicate_fd(loop, options->stdio[i].data.fd, &child_handle);
-		    if (err.code != UV_OK)
+	        if (err != 0)
               goto error;
             break;
           case UV_RAW_HANDLE:
             err = uv__duplicate_handle(loop, options->stdio[i].data.os_handle, &child_handle);
-			if (err.code != UV_OK)
+            if (err != 0)
               goto error;
             break;
           default:
-        if (err) {
             goto error;
         }
 
@@ -268,7 +267,7 @@ int uv__stdio_create(uv_loop_t* loop, uv_process_options_t* options,
         DWORD access = (i == 0) ? FILE_GENERIC_READ :
             (FILE_GENERIC_WRITE | FILE_READ_ATTRIBUTES);
         err = uv__create_nul_handle(&CHILD_STDIO_HANDLE(buffer, i), access);
-        if (err.code != UV_OK)
+        if (err != 0)
           goto error;
         CHILD_STDIO_CRT_FLAGS(buffer, i) = FOPEN | FDEV;
       }
@@ -300,7 +299,7 @@ int uv__stdio_create(uv_loop_t* loop, uv_process_options_t* options,
 
       /* Make an inheritable copy of the handle. */
       err = uv__duplicate_handle(loop, stream_handle, &child_handle);
-	  if (err.code != UV_OK)
+      if (err != 0)
         goto error;
 
       CHILD_STDIO_HANDLE(buffer, i) = child_handle;
