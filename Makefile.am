@@ -57,7 +57,7 @@ libuv_la_SOURCES += src/unix/async.c \
 else 
 include_HEADERS += include/uv-win.h
 AM_CPPFLAGS += -I$(top_srcdir)/src/win -D_WIN32_WINNT=0x0600 -DWIN32_LEAN_AND_MEAN
-LIBS += -lws2_32 -lpsapi -lphlpapi2
+LIBS += -lws2_32 -lpsapi -liphlpapi
 libuv_la_SOURCES += src/win/async.c \
                    src/win/core.c \
                    src/win/dl.c \
