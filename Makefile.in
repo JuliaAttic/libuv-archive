@@ -73,7 +73,7 @@ host_triplet = @host@
 
 @WINNT_TRUE@am__append_4 = include/uv-win.h
 @WINNT_TRUE@am__append_5 = -I$(top_srcdir)/src/win -D_WIN32_WINNT=0x0600 -DWIN32_LEAN_AND_MEAN
-@WINNT_TRUE@am__append_6 = -lws2_32 -lpsapi -lphlpapi2
+@WINNT_TRUE@am__append_6 = -lws2_32 -lpsapi -liphlpapi
 @WINNT_TRUE@am__append_7 = src/win/async.c \
 @WINNT_TRUE@                   src/win/core.c \
 @WINNT_TRUE@                   src/win/dl.c \
