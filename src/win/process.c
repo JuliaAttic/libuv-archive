@@ -948,7 +948,7 @@ int uv_spawn(uv_loop_t* loop, uv_process_t* process,
      * CreateProcess call fail if we're under job control that doesn't allow
      * breakaway.
      */
-    process_flags |= DETACHED_PROCESS | CREATE_NEW_PROCESS_GROUP;
+    process_flags |= CREATE_NEW_PROCESS_GROUP;
   }
 
   if (CreateProcessW(application_path,
