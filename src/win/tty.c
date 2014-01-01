@@ -113,12 +113,22 @@ void uv_console_init() {
 
 
 int uv_tty_init(uv_loop_t* loop, uv_tty_t* tty, uv_file fd, int readable) {
-  HANDLE handle;
+  HANDLE handle, os_handle;
   CONSOLE_SCREEN_BUFFER_INFO screen_buffer_info;
 
-  handle = (HANDLE) uv__get_osfhandle(fd);
-  if (handle == INVALID_HANDLE_VALUE)
+  os_handle = (HANDLE) uv__get_osfhandle(fd);
+  if (os_handle == INVALID_HANDLE_VALUE) {
     return UV_EBADF;
+  }
+  if (!DuplicateHandle(GetCurrentProcess(),
+      os_handle,
+      GetCurrentProcess(),
+      &handle,
+      0,
+      TRUE,
+      DUPLICATE_SAME_ACCESS)) {
+    return UV_EBADF;
+  }
 
   if (fd <= 2) {
     /* In order to avoid closing a stdio file descriptor 0-2, duplicate the
