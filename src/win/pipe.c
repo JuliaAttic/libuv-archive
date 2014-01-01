@@ -356,15 +356,22 @@ static int uv_set_pipe_handle(uv_loop_t* loop, uv_pipe_t* handle,
   NTSTATUS nt_status;
   IO_STATUS_BLOCK io_status;
   FILE_MODE_INFORMATION mode_info;
-  DWORD mode = PIPE_TYPE_BYTE | PIPE_READMODE_BYTE | PIPE_WAIT;
+  DWORD oldmode, mode = PIPE_READMODE_BYTE | PIPE_WAIT;
 
-  if (!SetNamedPipeHandleState(pipeHandle, &mode, NULL, NULL)) {
+  if (!GetNamedPipeHandleState(pipeHandle, &oldmode, NULL, NULL, NULL, NULL, 0)) {
+    oldmode = PIPE_READMODE_MESSAGE | PIPE_NOWAIT; // assume the worst
+  }
+  
+  if (oldmode != mode && !SetNamedPipeHandleState(pipeHandle, &mode, NULL, NULL)) {
     /* If this returns ERROR_INVALID_PARAMETER we probably opened something */
     /* that is not a pipe. */
     if (GetLastError() == ERROR_INVALID_PARAMETER) {
       SetLastError(WSAENOTSOCK);
+      return -1;
     }
-    return -1;
+    if (oldmode & PIPE_NOWAIT) {
+      return -1;
+    }
   }
 
   /* Check if the pipe was created with FILE_FLAG_OVERLAPPED. */
@@ -1844,16 +1851,57 @@ static void eof_timer_close_cb(uv_handle_t* handle) {
 
 
 int uv_pipe_open(uv_pipe_t* pipe, uv_file file) {
-  HANDLE os_handle = (HANDLE)_get_osfhandle(file);
+  HANDLE os_handle = (HANDLE)_get_osfhandle(file), os_handle2;
+  NTSTATUS nt_status;
+  IO_STATUS_BLOCK io_status;
+  FILE_ACCESS_INFORMATION access;
+
+  /* Try to duplicate the file handle, with FILE_WRITE_ATTRIBUTES access */
+  nt_status = pNtQueryInformationFile(os_handle,
+                                      &io_status,
+                                      &access,
+                                      sizeof(access),
+                                      FileAccessInformation);
+  if (nt_status != STATUS_SUCCESS) {
+    return UV_EINVAL;
+  }
+
+  if (pipe->flags&UV_HANDLE_PIPE_IPC) {
+    if (!(access.AccessFlags&FILE_WRITE_DATA) ||
+        !(access.AccessFlags&FILE_READ_DATA)){
+      return UV_EINVAL;
+    }
+  }
+
+  if (!DuplicateHandle(GetCurrentProcess(),
+                       os_handle,
+                       GetCurrentProcess(),
+                       &os_handle2,
+                       access.AccessFlags|FILE_WRITE_ATTRIBUTES,
+                       TRUE,
+                       0)) {
+    if (!DuplicateHandle(GetCurrentProcess(),
+                       os_handle,
+                       GetCurrentProcess(),
+                       &os_handle2,
+                       access.AccessFlags,
+                       TRUE,
+                       0)) {
+      return UV_EINVAL;
+    }
+  }
 
   if (os_handle == INVALID_HANDLE_VALUE ||
-      uv_set_pipe_handle(pipe->loop, pipe, os_handle, 0) == -1) {
+      uv_set_pipe_handle(pipe->loop, pipe, os_handle2, 0) == -1) {
     return UV_EINVAL;
   }
 
   uv_pipe_connection_init(pipe);
   pipe->handle = os_handle;
-  pipe->flags |= UV_HANDLE_READABLE | UV_HANDLE_WRITABLE;
+  if (access.AccessFlags&FILE_WRITE_DATA)
+    pipe->flags |= UV_HANDLE_READABLE;
+  if (access.AccessFlags&FILE_READ_DATA)
+    pipe->flags |= UV_HANDLE_WRITABLE;
 
   if (pipe->flags&UV_HANDLE_PIPE_IPC) {
     assert(!(pipe->flags & UV_HANDLE_NON_OVERLAPPED_PIPE));
