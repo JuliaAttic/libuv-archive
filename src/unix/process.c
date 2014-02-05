@@ -33,9 +33,7 @@
 #include <fcntl.h>
 #include <poll.h>
 
-#ifdef __linux__
-# include <linux/sched.h>
-#elif defined(__APPLE__) && !TARGET_OS_IPHONE
+#if defined(__APPLE__) && !TARGET_OS_IPHONE
 # include <crt_externs.h>
 # define environ (*_NSGetEnviron())
 #else
@@ -178,6 +176,7 @@ static int uv__process_init_stdio(uv_stdio_container_t* container, int *fd) {
   }
 }
 
+#ifndef __linux__
 static void uv__write_int(int fd, int val) {
   ssize_t n;
 
@@ -190,28 +189,27 @@ static void uv__write_int(int fd, int val) {
 
   assert(n == sizeof(val));
 }
+#endif
 
-struct uv__process_child_args {
-  sigset_t sigoset;
-  uv_process_options_t options;
-  int stdio_count;
-  int *pipes;
-  int error_fd;
-};
 
 /*
  * May share the parent's memory space. Do not alter global state.
  */
-static int uv__process_child_init(struct uv__process_child_args* arg) {
-  uv_process_options_t options = arg->options;
-  int stdio_count = arg->stdio_count;
-  int *pipes = arg->pipes;
-  int error_fd = arg->error_fd;
-
+static void uv__process_child_init(uv_process_options_t options,
+                                   int stdio_count,
+                                   int *pipes,
+                                   sigset_t sigoset,
+#ifdef __linux__
+                                   int* error_out
+#else
+                                   int error_fd
+#endif
+                                  ) {
   int use_fd;
   int fd;
+  int err;
 
-  sigprocmask(SIG_SETMASK, &arg->sigoset, NULL);
+  sigprocmask(SIG_SETMASK, &sigoset, NULL);
 
   if (options.flags & UV_PROCESS_DETACHED)
     setsid();
@@ -229,9 +227,9 @@ static int uv__process_child_init(struct uv__process_child_args* arg) {
       use_fd = open("/dev/null", fd == 0 ? O_RDONLY : O_RDWR);
 
       if (use_fd == -1) {
-        uv__write_int(error_fd, -errno);
         /* perror("failed to open stdio"); */
-        _exit(127);
+        err = -errno;
+        goto error;
       }
     }
 
@@ -247,28 +245,28 @@ static int uv__process_child_init(struct uv__process_child_args* arg) {
   }
 
   if (options.cwd && chdir(options.cwd)) {
-    uv__write_int(error_fd, -errno);
     /* perror("chdir()"); */
-    _exit(127);
+    err = -errno;
+    goto error;
   }
 
   if ((options.flags & UV_PROCESS_SETGID) && setgid(options.gid)) {
-    uv__write_int(error_fd, -errno);
     /* perror("setgid()"); */
-    _exit(127);
+    err = -errno;
+    goto error;
   }
 
   if ((options.flags & UV_PROCESS_SETUID) && setuid(options.uid)) {
-    uv__write_int(error_fd, -errno);
     /* perror("setuid()"); */
-    _exit(127);
+    err = -errno;
+    goto error;
   }
 
   if ((options.flags & UV_PROCESS_RESET_SIGPIPE) && signal(SIGPIPE,SIG_DFL) == SIG_ERR)
   {
-    uv__write_int(error_fd, errno);
     /* perror("signal()"); */
-    _exit(127);
+    err = errno;
+    goto error;
   }
 
 #ifdef __linux__
@@ -288,8 +286,15 @@ static int uv__process_child_init(struct uv__process_child_args* arg) {
   execvp(options.file, options.args);
 #endif
 
-  uv__write_int(error_fd, -errno);
+  err = -errno;
   /* perror("execvp()"); */
+
+error:
+#ifdef __linux__
+  *error_out = err;
+#else
+  uv__write_int(error_fd, err);
+#endif
   _exit(127);
 }
 
@@ -297,20 +302,19 @@ static int uv__process_child_init(struct uv__process_child_args* arg) {
 int uv_spawn(uv_loop_t* loop,
              uv_process_t* process,
              const uv_process_options_t options) {
-  int signal_pipe[2] = { -1, -1 };
   int *pipes;
   int stdio_count;
   QUEUE* q;
-  ssize_t r;
   pid_t pid;
   int err;
   int i;
-  struct uv__process_child_args arg;
-#ifdef __linux__
-  char stack[65536] __attribute__ ((aligned));
-  char *stack_start;
-#endif
   sigset_t sigset, sigoset;
+#ifdef __linux__
+  int cancelstate;
+#else
+  int signal_pipe[2] = { -1, -1 };
+  ssize_t r;
+#endif
 
   assert(options.file != NULL);
   assert(!(options.flags & ~(UV_PROCESS_DETACHED |
@@ -345,11 +349,30 @@ int uv_spawn(uv_loop_t* loop,
       goto error;
   }
 
+  process->errorno = 0;
+  uv_signal_start(&loop->child_watcher, uv__chld, SIGCHLD);
+
+#ifdef __linux__
+  pthread_setcancelstate(PTHREAD_CANCEL_DISABLE, &cancelstate);
+
+  pid = vfork();
+
+  if (pid == -1) {
+    err = -errno;
+    goto error;
+  }
+
+  if (pid == 0) {
+    uv__process_child_init(options, stdio_count, pipes,
+                           sigoset, &process->errorno);
+    abort();
+  }
+
+  pthread_setcancelstate(cancelstate, NULL);
+#else /* !__linux__ */
   /* This pipe is used by the parent to wait until
    * the child has called `execve()`. We need this
-   * on Linux so that we don't free `arg` before the
-   * clone process is done using it, and on all
-   * platforms to avoid the following race condition:
+   * to avoid the following race condition:
    *
    *    if ((pid = fork()) > 0) {
    *      kill(pid, SIGTERM);
@@ -371,31 +394,7 @@ int uv_spawn(uv_loop_t* loop,
   if (err)
     goto error;
 
-  uv_signal_start(&loop->child_watcher, uv__chld, SIGCHLD);
-
-  arg.sigoset = sigoset;
-  arg.options = options;
-  arg.stdio_count = stdio_count;
-  arg.pipes = pipes;
-  arg.error_fd = signal_pipe[1];
-
-#ifdef __linux__
-  /* On Linux, fork() is slow for large processes because it must
-   * duplicate the parent's page tables. We avoid this overhead by
-   * using clone() with the CLONE_VM option, which shares memory
-   * with the child. Stack size is arbitrary; it is replaced on
-   * execvp and must only be sufficient for uv__process_child_init.
-   */
-   stack_start = stack;
-# ifndef __hppa__
-    /* Usually, the stack grows up. */
-    stack_start += sizeof(stack);
-# endif
-
-  pid = clone((int (*)(void *))&uv__process_child_init, stack_start, CLONE_VM | SIGCHLD, &arg);
-#else /* !__linux__ */
   pid = fork();
-#endif /* __linux__ */
 
   if (pid == -1) {
     err = -errno;
@@ -405,35 +404,27 @@ int uv_spawn(uv_loop_t* loop,
   }
 
   if (pid == 0) {
-    uv__process_child_init(&arg);
+    uv__process_child_init(options, stdio_count, pipes, sigoset, signal_pipe[1]);
     abort();
   }
 
   close(signal_pipe[1]);
 
-  process->errorno = 0;
   do
     r = read(signal_pipe[0], &process->errorno, sizeof(process->errorno));
   while (r == -1 && errno == EINTR);
 
-  if (r == 0) {
-    /* okay, EOF */
-  } else if (r == sizeof(process->errorno)) {
-    /* okay, read errorno */
-#ifdef __linux__
-    /* Make sure we don't return until the process is dead, since it is
-     * using our stack.
-     */
-    if (uv__is_active(process))
-      waitpid(pid, NULL, 0);
-#endif
-  } else if (r == -1 && errno == EPIPE) {
-    /* okay, got EPIPE */
-  } else {
+  if (r == 0)
+    ; /* okay, EOF */
+  else if (r == sizeof(process->errorno))
+    ; /* okay, read errorno */
+  else if (r == -1 && errno == EPIPE)
+    ; /* okay, got EPIPE */
+  else
     abort();
-  }
 
   close(signal_pipe[0]);
+#endif /* __linux__ */
 
   q = uv__process_queue(loop, pid);
   QUEUE_INSERT_TAIL(q, &process->queue);
