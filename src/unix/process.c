@@ -33,7 +33,9 @@
 #include <fcntl.h>
 #include <poll.h>
 
-#if defined(__APPLE__) && !TARGET_OS_IPHONE
+#ifdef __linux__
+# include <linux/sched.h>
+#elif defined(__APPLE__) && !TARGET_OS_IPHONE
 # include <crt_externs.h>
 # define environ (*_NSGetEnviron())
 #else
@@ -189,13 +191,27 @@ static void uv__write_int(int fd, int val) {
   assert(n == sizeof(val));
 }
 
+struct uv__process_child_args {
+  sigset_t sigoset;
+  uv_process_options_t options;
+  int stdio_count;
+  int *pipes;
+  int error_fd;
+};
 
-static void uv__process_child_init(uv_process_options_t options,
-                                   int stdio_count,
-                                   int *pipes,
-                                   int error_fd) {
+/*
+ * May share the parent's memory space. Do not alter global state.
+ */
+static int uv__process_child_init(struct uv__process_child_args* arg) {
+  uv_process_options_t options = arg->options;
+  int stdio_count = arg->stdio_count;
+  int *pipes = arg->pipes;
+  int error_fd = arg->error_fd;
+
   int use_fd;
   int fd;
+
+  sigprocmask(SIG_SETMASK, &arg->sigoset, NULL);
 
   if (options.flags & UV_PROCESS_DETACHED)
     setsid();
@@ -255,11 +271,23 @@ static void uv__process_child_init(uv_process_options_t options,
     _exit(127);
   }
 
+#ifdef __linux__
+  /* Because we share memory with the parent process, overwriting
+   * environ is not a good idea.
+   */
+  if (options.env) {
+    execvpe(options.file, options.args, options.env);
+  } else {
+    execvp(options.file, options.args);
+  }
+#else
   if (options.env) {
     environ = options.env;
   }
 
   execvp(options.file, options.args);
+#endif
+
   uv__write_int(error_fd, -errno);
   /* perror("execvp()"); */
   _exit(127);
@@ -277,6 +305,12 @@ int uv_spawn(uv_loop_t* loop,
   pid_t pid;
   int err;
   int i;
+  struct uv__process_child_args arg;
+#ifdef __linux__
+  char stack[65536] __attribute__ ((aligned));
+  char *stack_start;
+#endif
+  sigset_t sigset, sigoset;
 
   assert(options.file != NULL);
   assert(!(options.flags & ~(UV_PROCESS_DETACHED |
@@ -286,7 +320,6 @@ int uv_spawn(uv_loop_t* loop,
                              UV_PROCESS_WINDOWS_VERBATIM_ARGUMENTS |
                              UV_PROCESS_RESET_SIGPIPE)));
 
-  sigset_t sigset, sigoset;
   sigfillset(&sigset);
   sigprocmask(SIG_SETMASK, &sigset, &sigoset);
 
@@ -314,7 +347,9 @@ int uv_spawn(uv_loop_t* loop,
 
   /* This pipe is used by the parent to wait until
    * the child has called `execve()`. We need this
-   * to avoid the following race condition:
+   * on Linux so that we don't free `arg` before the
+   * clone process is done using it, and on all
+   * platforms to avoid the following race condition:
    *
    *    if ((pid = fork()) > 0) {
    *      kill(pid, SIGTERM);
@@ -337,8 +372,30 @@ int uv_spawn(uv_loop_t* loop,
     goto error;
 
   uv_signal_start(&loop->child_watcher, uv__chld, SIGCHLD);
-  
+
+  arg.sigoset = sigoset;
+  arg.options = options;
+  arg.stdio_count = stdio_count;
+  arg.pipes = pipes;
+  arg.error_fd = signal_pipe[1];
+
+#ifdef __linux__
+  /* On Linux, fork() is slow for large processes because it must
+   * duplicate the parent's page tables. We avoid this overhead by
+   * using clone() with the CLONE_VM option, which shares memory
+   * with the child. Stack size is arbitrary; it is replaced on
+   * execvp and must only be sufficient for uv__process_child_init.
+   */
+   stack_start = stack;
+# ifndef __hppa__
+    /* Usually, the stack grows up. */
+    stack_start += sizeof(stack);
+# endif
+
+  pid = clone((int (*)(void *))&uv__process_child_init, stack_start, CLONE_VM | SIGCHLD, &arg);
+#else /* !__linux__ */
   pid = fork();
+#endif /* __linux__ */
 
   if (pid == -1) {
     err = -errno;
@@ -348,8 +405,7 @@ int uv_spawn(uv_loop_t* loop,
   }
 
   if (pid == 0) {
-    sigprocmask(SIG_SETMASK, &sigoset, NULL);
-    uv__process_child_init(options, stdio_count, pipes, signal_pipe[1]);
+    uv__process_child_init(&arg);
     abort();
   }
 
@@ -360,14 +416,22 @@ int uv_spawn(uv_loop_t* loop,
     r = read(signal_pipe[0], &process->errorno, sizeof(process->errorno));
   while (r == -1 && errno == EINTR);
 
-  if (r == 0)
-    ; /* okay, EOF */
-  else if (r == sizeof(process->errorno))
-    ; /* okay, read errorno */
-  else if (r == -1 && errno == EPIPE)
-    ; /* okay, got EPIPE */
-  else
+  if (r == 0) {
+    /* okay, EOF */
+  } else if (r == sizeof(process->errorno)) {
+    /* okay, read errorno */
+#ifdef __linux__
+    /* Make sure we don't return until the process is dead, since it is
+     * using our stack.
+     */
+    if (uv__is_active(process))
+      waitpid(pid, NULL, 0);
+#endif
+  } else if (r == -1 && errno == EPIPE) {
+    /* okay, got EPIPE */
+  } else {
     abort();
+  }
 
   close(signal_pipe[0]);
 
