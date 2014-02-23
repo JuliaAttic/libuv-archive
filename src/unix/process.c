@@ -202,7 +202,7 @@ static void uv__process_child_init(const uv_process_options_t* options,
                                    int stdio_count,
                                    int *pipes,
                                    int error_fd) {
-  int use_fd;
+  int use_fd, close_fd;
   int fd;
 
   if (options->flags & UV_PROCESS_DETACHED)
@@ -241,13 +241,6 @@ static void uv__process_child_init(const uv_process_options_t* options,
       uv__close(close_fd);
   }
 
-  for (fd = 0; fd < stdio_count; fd++) {
-    use_fd = pipes[fd][1];
-
-    if (use_fd >= 0 && fd != use_fd)
-      close(use_fd);
-  }
-
   if (options->cwd != NULL && chdir(options->cwd)) {
     uv__write_int(error_fd, -errno);
     /* perror("chdir()"); */
@@ -277,15 +270,15 @@ static void uv__process_child_init(const uv_process_options_t* options,
     _exit(127);
   }
 
-  if ((options.flags & UV_PROCESS_RESET_SIGPIPE) && signal(SIGPIPE,SIG_DFL) == SIG_ERR)
+  if ((options->flags & UV_PROCESS_RESET_SIGPIPE) && signal(SIGPIPE,SIG_DFL) == SIG_ERR)
   {
-    uv__write_int(error_fd, errno);
+    uv__write_int(error_fd, -errno);
     /* perror("signal()"); */
     _exit(127);
   }
 
   if (options->env != NULL) {
-    environ = options.env;
+    environ = options->env;
   }
 
   execvp(options->file, options->args);
@@ -308,8 +301,8 @@ int uv_spawn(uv_loop_t* loop,
   int exec_errorno;
   int i;
 
-  assert(options.file != NULL);
-  assert(!(options.flags & ~(UV_PROCESS_DETACHED |
+  assert(options->file != NULL);
+  assert(!(options->flags & ~(UV_PROCESS_DETACHED |
                              UV_PROCESS_SETGID |
                              UV_PROCESS_SETUID |
                              UV_PROCESS_WINDOWS_HIDE |
@@ -337,7 +330,7 @@ int uv_spawn(uv_loop_t* loop,
   }
 
   for (i = 0; i < options->stdio_count; i++) {
-    err = uv__process_init_stdio(options->stdio + i, pipes[i]);
+    err = uv__process_init_stdio(options->stdio + i, &pipes[i]);
     if (err)
       goto error;
   }
@@ -424,7 +417,7 @@ int uv_spawn(uv_loop_t* loop,
 
 error:
   for (i = 0; i < stdio_count; i++) {
-    if (options.stdio[i].type == UV_STREAM && options.stdio[i].data.stream == NULL)
+    if (options->stdio[i].type == UV_STREAM && options->stdio[i].data.stream == NULL)
       close(pipes[i]);
   }
 

@@ -115,7 +115,7 @@ int uv_pipe_link(uv_pipe_t *read, uv_pipe_t *write) {
   assert(read->loop==write->loop);
   assert(read->flags&UV_STREAM_READABLE);
   assert(write->flags&UV_STREAM_WRITABLE);
-  assert(!(write->flags&read->flags&UV_HANDLE_PIPE_IPC));
+  assert(!(write->flags&read->flags&UV__PIPE_IPC));
 
   flags = ((read->flags & UV_PIPE_SPAWN_SAFE)==(write->flags & UV_PIPE_SPAWN_SAFE) && 
           (write->flags & UV_PIPE_SPAWN_SAFE) != 0) ? UV__F_NONBLOCK : 0;

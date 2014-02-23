@@ -529,9 +529,6 @@ struct uv_shutdown_s {
   /* read-only */                                                             \
   uv_loop_t* loop;                                                            \
   uv_handle_type type;                                                        \
-  /* public */                                                                \
-  uv_close_cb close_cb;                                                       \
-  void* data;                                                                 \
   /* private */                                                               \
   uv_close_cb close_cb;                                                       \
   void* handle_queue[2];                                                      \
