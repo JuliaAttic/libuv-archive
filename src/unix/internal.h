@@ -136,7 +136,7 @@ enum {
   UV_STREAM_READ_EOF      = 0x200,  /* read(2) read EOF. */
   UV_TCP_NODELAY          = 0x400,  /* Disable Nagle. */
   UV_TCP_KEEPALIVE        = 0x800,  /* Turn on keep-alive. */
-  UV_TCP_SINGLE_ACCEPT    = 0x1000  /* Only accept() when idle. */
+  UV_TCP_SINGLE_ACCEPT    = 0x1000, /* Only accept() when idle. */
   UV__PIPE_IPC            = 0x400,
   UV__PIPE_SPAWN_SAFE     = 0x800,
 };
@@ -254,6 +254,8 @@ int uv___stream_fd(uv_stream_t* handle);
 #else
 # define UV__F_NONBLOCK 1
 #endif
+
+int uv__make_pipe(int fds[2], int flags);
 
 #if defined(__APPLE__)
 

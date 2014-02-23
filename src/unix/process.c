@@ -202,7 +202,7 @@ static void uv__process_child_init(const uv_process_options_t* options,
                                    int stdio_count,
                                    int *pipes,
                                    int error_fd) {
-  int use_fd;
+  int use_fd, close_fd;
   int fd;
 
   if (options->flags & UV_PROCESS_DETACHED)
@@ -238,13 +238,6 @@ static void uv__process_child_init(const uv_process_options_t* options,
 
     if (close_fd != -1)
       uv__close(close_fd);
-  }
-
-  for (fd = 0; fd < stdio_count; fd++) {
-    use_fd = pipes[fd][1];
-
-    if (use_fd >= 0 && fd != use_fd)
-      close(use_fd);
   }
 
   if (options->cwd != NULL && chdir(options->cwd)) {
@@ -320,7 +313,7 @@ int uv_spawn(uv_loop_t* loop,
   }
 
   for (i = 0; i < options->stdio_count; i++) {
-    err = uv__process_init_stdio(options->stdio + i, pipes[i]);
+    err = uv__process_init_stdio(options->stdio + i, &pipes[i]);
     if (err)
       goto error;
   }
@@ -404,7 +397,7 @@ int uv_spawn(uv_loop_t* loop,
 
 error:
   for (i = 0; i < stdio_count; i++) {
-    if (options.stdio[i].type == UV_STREAM && options.stdio[i].data.stream == NULL)
+    if (options->stdio[i].type == UV_STREAM && options->stdio[i].data.stream == NULL)
       close(pipes[i]);
   }
 
