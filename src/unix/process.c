@@ -156,27 +156,27 @@ skip:
  * Used for initializing stdio streams like options.stdin_stream. Returns
  * zero on success. See also the cleanup section in uv_spawn().
  */
-static int uv__process_init_stdio(uv_stdio_container_t* container, int *fd) {
+static int uv__process_init_stdio(uv_stdio_container_t* container, int fds[2]) {
   switch (container->type) {
     case UV_STREAM:
       if (container->data.stream == NULL) {
-        *fd = -1;
+        fds[1] = -1;
         return 0;
       } else {
-        *fd = container->data.stream->io_watcher.fd;
+        fds[1] = container->data.stream->io_watcher.fd;
       }
       break;
     case UV_RAW_FD:
     case UV_RAW_HANDLE:
-      *fd = container->data.fd;
+      fds[1] = container->data.fd;
       break;
     default:
       assert (0 && "Unexpected flags");
-      *fd = -1;
+      fds[1] = -1;
     return -EINVAL;
       errno = EINVAL;
   }
-  if (*fd == -1) {
+  if (fds[1] == -1) {
     errno = EINVAL;
     return -1;
   } else {
@@ -200,7 +200,7 @@ static void uv__write_int(int fd, int val) {
 
 static void uv__process_child_init(const uv_process_options_t* options,
                                    int stdio_count,
-                                   int *pipes,
+                                   int (*pipes)[2],
                                    int error_fd) {
   int use_fd, close_fd;
   int fd;
@@ -209,7 +209,8 @@ static void uv__process_child_init(const uv_process_options_t* options,
     setsid();
 
   for (fd = 0; fd < stdio_count; fd++) {
-    use_fd = pipes[fd];
+    close_fd = pipes[fd][0];
+    use_fd = pipes[fd][1];
 
     if (use_fd < 0) {
       if (fd >= 3)
@@ -292,7 +293,7 @@ int uv_spawn(uv_loop_t* loop,
              uv_process_t* process,
              const uv_process_options_t* options) {
   int signal_pipe[2] = { -1, -1 };
-  int *pipes;
+  int (*pipes)[2];
   int stdio_count;
   QUEUE* q;
   ssize_t r;
@@ -326,11 +327,12 @@ int uv_spawn(uv_loop_t* loop,
     goto error;
 
   for (i = 0; i < stdio_count; i++) {
-    pipes[i] = -1;
+    pipes[i][0] = -1;
+    pipes[i][1] = -1;
   }
 
   for (i = 0; i < options->stdio_count; i++) {
-    err = uv__process_init_stdio(options->stdio + i, &pipes[i]);
+    err = uv__process_init_stdio(options->stdio + i, pipes[i]);
     if (err)
       goto error;
   }
@@ -418,7 +420,12 @@ int uv_spawn(uv_loop_t* loop,
 error:
   for (i = 0; i < stdio_count; i++) {
     if (options->stdio[i].type == UV_STREAM && options->stdio[i].data.stream == NULL)
-      close(pipes[i]);
+    {
+      if (pipes[i][0] != -1)
+        close(pipes[i][0]);
+      if (pipes[i][1] != -1)
+        close(pipes[i][1]);
+    }
   }
 
   free(pipes);
