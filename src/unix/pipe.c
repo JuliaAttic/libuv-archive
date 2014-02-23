@@ -112,7 +112,7 @@ int uv_pipe_link(uv_pipe_t *read, uv_pipe_t *write) {
   assert(read->loop==write->loop);
   assert(read->flags&UV_STREAM_READABLE);
   assert(write->flags&UV_STREAM_WRITABLE);
-  assert(!(write->flags&read->flags&UV_HANDLE_PIPE_IPC));
+  assert(!(write->flags&read->flags&UV__PIPE_IPC));
 
 #ifdef SOCK_NONBLOCK
   int fl;
@@ -323,7 +323,7 @@ void uv_pipe_pending_instances(uv_pipe_t* handle, int count) {
 int uv_pipe_pending_count(uv_pipe_t* handle) {
   uv__stream_queued_fds_t* queued_fds;
 
-  if (!handle->ipc)
+  if (!handle->flags&UV__PIPE_IPC)
     return 0;
 
   if (handle->accepted_fd == -1)
@@ -338,7 +338,7 @@ int uv_pipe_pending_count(uv_pipe_t* handle) {
 
 
 uv_handle_type uv_pipe_pending_type(uv_pipe_t* handle) {
-  if (!handle->ipc)
+  if (!handle->flags&UV__PIPE_IPC)
     return UV_UNKNOWN_HANDLE;
 
   if (handle->accepted_fd == -1)

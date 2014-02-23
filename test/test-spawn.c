@@ -711,7 +711,7 @@ TEST_IMPL(spawn_same_stdout_stderr) {
   uv_pipe_init(uv_default_loop(), &out, 0);
   uv_pipe_init(uv_default_loop(), &in, 0);
   options.stdio = stdio;
-  options.stdio[0].flags = UV_CREATE_PIPE | UV_READABLE_PIPE;
+  options.stdio[0].flags = UV_CREATE_PIPE | UV_PIPE_READABLE;
   options.stdio[0].data.stream = (uv_stream_t*)&in;
   options.stdio[1].flags = UV_CREATE_PIPE | UV_WRITABLE_PIPE;
   options.stdio[1].data.stream = (uv_stream_t*)&out;
@@ -1157,7 +1157,7 @@ TEST_IMPL(spawn_fs_open) {
   ASSERT(0 == uv_pipe_init(uv_default_loop(), &in, 0));
 
   options.stdio = stdio;
-  options.stdio[0].flags = UV_CREATE_PIPE | UV_READABLE_PIPE;
+  options.stdio[0].flags = UV_CREATE_PIPE | UV_PIPE_READABLE;
   options.stdio[0].data.stream = (uv_stream_t*) &in;
   options.stdio_count = 1;
 
@@ -1192,10 +1192,6 @@ TEST_IMPL(closed_fd_events) {
   init_process_options("spawn_helper4", exit_cb);
   options.stdio_count = 3;
   options.stdio = stdio;
-  options.stdio[0].flags = UV_INHERIT_FD;
-  options.stdio[0].data.fd = fd[0];
-  options.stdio[1].flags = UV_IGNORE;
-  options.stdio[2].flags = UV_IGNORE;
 
   ASSERT(0 == uv_spawn(uv_default_loop(), &process, &options));
   uv_unref((uv_handle_t*) &process);
