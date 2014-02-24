@@ -310,10 +310,6 @@ int uv_spawn(uv_loop_t* loop,
                              UV_PROCESS_WINDOWS_VERBATIM_ARGUMENTS |
                              UV_PROCESS_RESET_SIGPIPE)));
 
-  sigset_t sigset, sigoset;
-  sigfillset(&sigset);
-  sigprocmask(SIG_SETMASK, &sigset, &sigoset);
-
   uv__handle_init(loop, (uv_handle_t*)process, UV_PROCESS);
   QUEUE_INIT(&process->queue);
 
@@ -362,6 +358,10 @@ int uv_spawn(uv_loop_t* loop,
     goto error;
 
   uv_signal_start(&loop->child_watcher, uv__chld, SIGCHLD);
+
+  sigset_t sigset, sigoset;
+  sigfillset(&sigset);
+  sigprocmask(SIG_SETMASK, &sigset, &sigoset);
 
   /* Acquire write lock to prevent opening new fds in worker threads */
   uv_rwlock_wrlock(&loop->cloexec_lock);
