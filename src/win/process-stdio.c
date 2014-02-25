@@ -103,7 +103,7 @@ static int uv__create_stdio_pipe_pair(uv_loop_t* loop,
   HANDLE child_pipe = INVALID_HANDLE_VALUE;
   int err;
 
-  if (flags & UV_READABLE_PIPE) {
+  if (flags & UV_PIPE_READABLE) {
     /* The server needs inbound access too, otherwise CreateNamedPipe() */
     /* won't give us the FILE_READ_ATTRIBUTES permission. We need that to */
     /* probe the state of the write buffer when we're trying to shutdown */
@@ -111,7 +111,7 @@ static int uv__create_stdio_pipe_pair(uv_loop_t* loop,
     server_access |= PIPE_ACCESS_OUTBOUND | PIPE_ACCESS_INBOUND;
     client_access |= GENERIC_READ | FILE_WRITE_ATTRIBUTES;
   }
-  if (flags & UV_WRITABLE_PIPE) {
+  if (flags & UV_PIPE_WRITABLE) {
     server_access |= PIPE_ACCESS_INBOUND;
     client_access |= GENERIC_WRITE | FILE_READ_ATTRIBUTES;
   }
@@ -135,7 +135,7 @@ static int uv__create_stdio_pipe_pair(uv_loop_t* loop,
                            0,
                            &sa,
                            OPEN_EXISTING,
-                           server_pipe->ipc ? FILE_FLAG_OVERLAPPED : 0,
+                           (flags & UV_PIPE_IPC) ? FILE_FLAG_OVERLAPPED : 0,
                            NULL);
   if (child_pipe == INVALID_HANDLE_VALUE) {
     err = GetLastError();
@@ -168,9 +168,9 @@ static int uv__create_stdio_pipe_pair(uv_loop_t* loop,
   }
 
   /* The server end is now readable and/or writable. */
-  if (flags & UV_READABLE_PIPE)
+  if (flags & UV_PIPE_READABLE)
     server_pipe->flags |= UV_HANDLE_WRITABLE;
-  if (flags & UV_WRITABLE_PIPE)
+  if (flags & UV_PIPE_WRITABLE)
     server_pipe->flags |= UV_HANDLE_READABLE;
 
   *child_pipe_ptr = child_pipe;
