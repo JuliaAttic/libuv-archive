@@ -197,6 +197,7 @@ static void uv__process_close_stream(uv_stdio_container_t* container) {
 }
 
 
+#ifndef __linux__
 static void uv__write_int(int fd, int val) {
   ssize_t n;
 
@@ -209,17 +210,24 @@ static void uv__write_int(int fd, int val) {
 
   assert(n == sizeof(val));
 }
+#endif
 
 
 #if !(defined(__APPLE__) && (TARGET_OS_TV || TARGET_OS_WATCH))
-/* execvp is marked __WATCHOS_PROHIBITED __TVOS_PROHIBITED, so must be
+/* May share the parent's memory space. Do not alter global state.
+ *
+ * execvp is marked __WATCHOS_PROHIBITED __TVOS_PROHIBITED, so must be
  * avoided. Since this isn't called on those targets, the function
  * doesn't even need to be defined for them.
  */
 static void uv__process_child_init(const uv_process_options_t* options,
+#ifdef __linux__
+                                   volatile int* error_out,
+#else
+                                   int error_fd,
+#endif
                                    int stdio_count,
-                                   int (*pipes)[2],
-                                   int error_fd) {
+                                   int (*pipes)[2]) {
   sigset_t set;
   int close_fd;
   int use_fd;
@@ -246,8 +254,8 @@ static void uv__process_child_init(const uv_process_options_t* options,
       continue;
     pipes[fd][1] = fcntl(use_fd, F_DUPFD, stdio_count);
     if (pipes[fd][1] == -1) {
-      uv__write_int(error_fd, UV__ERR(errno));
-      _exit(127);
+      err = -errno;
+      goto error;
     }
   }
 
@@ -266,8 +274,8 @@ static void uv__process_child_init(const uv_process_options_t* options,
         close_fd = use_fd;
 
         if (use_fd == -1) {
-          uv__write_int(error_fd, UV__ERR(errno));
-          _exit(127);
+          err = -errno;
+          goto error;
         }
       }
     }
@@ -278,8 +286,8 @@ static void uv__process_child_init(const uv_process_options_t* options,
       fd = dup2(use_fd, fd);
 
     if (fd == -1) {
-      uv__write_int(error_fd, UV__ERR(errno));
-      _exit(127);
+      err = -errno;
+      goto error;
     }
 
     if (fd <= 2)
@@ -297,8 +305,8 @@ static void uv__process_child_init(const uv_process_options_t* options,
   }
 
   if (options->cwd != NULL && chdir(options->cwd)) {
-    uv__write_int(error_fd, UV__ERR(errno));
-    _exit(127);
+    err = -errno;
+    goto error;
   }
 
   if (options->flags & (UV_PROCESS_SETUID | UV_PROCESS_SETGID)) {
@@ -313,13 +321,13 @@ static void uv__process_child_init(const uv_process_options_t* options,
   }
 
   if ((options->flags & UV_PROCESS_SETGID) && setgid(options->gid)) {
-    uv__write_int(error_fd, UV__ERR(errno));
-    _exit(127);
+    err = -errno;
+    goto error;
   }
 
   if ((options->flags & UV_PROCESS_SETUID) && setuid(options->uid)) {
-    uv__write_int(error_fd, UV__ERR(errno));
-    _exit(127);
+    err = -errno;
+    goto error;
   }
 
 #if defined(__linux__) || defined(__FreeBSD__)
@@ -336,15 +344,11 @@ static void uv__process_child_init(const uv_process_options_t* options,
 
     r = -pthread_setaffinity_np(pthread_self(), sizeof(cpuset), &cpuset);
     if (r != 0) {
-      uv__write_int(error_fd, r);
-      _exit(127);
+      err = -errno;
+      goto error;
     }
   }
 #endif
-
-  if (options->env != NULL) {
-    environ = options->env;
-  }
 
   /* Reset signal disposition.  Use a hard-coded limit because NSIG
    * is not fixed on Linux: it's either 32, 34 or 64, depending on
@@ -358,21 +362,39 @@ static void uv__process_child_init(const uv_process_options_t* options,
     if (SIG_ERR != signal(n, SIG_DFL))
       continue;
 
-    uv__write_int(error_fd, UV__ERR(errno));
-    _exit(127);
+    err = -errno;
+    goto error;
   }
 
   /* Reset signal mask. */
   sigemptyset(&set);
   err = pthread_sigmask(SIG_SETMASK, &set, NULL);
 
-  if (err != 0) {
-    uv__write_int(error_fd, UV__ERR(err));
-    _exit(127);
+  if (err != 0)
+    goto error;
+
+#ifdef __linux__
+  if (options->env != NULL) {
+    execvpe(options->file, options->args, options->env);
+  } else {
+    execvp(options->file, options->args);
+  }
+#else
+  if (options->env != NULL) {
+    environ = options->env;
   }
 
   execvp(options->file, options->args);
-  uv__write_int(error_fd, UV__ERR(errno));
+#endif
+
+  err = -errno;
+
+error:
+#ifdef __linux__
+  *error_out = err;
+#else
+  uv__write_int(error_fd, err);
+#endif
   _exit(127);
 }
 #endif
@@ -385,18 +407,22 @@ int uv_spawn(uv_loop_t* loop,
   /* fork is marked __WATCHOS_PROHIBITED __TVOS_PROHIBITED. */
   return UV_ENOSYS;
 #else
-  int signal_pipe[2] = { -1, -1 };
   int pipes_storage[8][2];
   int (*pipes)[2];
   int stdio_count;
-  ssize_t r;
   pid_t pid;
   int err;
-  int exec_errorno;
   int i;
   int status;
   sigset_t sigset;
-  sigset_t sigoset;
+#ifdef __linux__
+  volatile int exec_errorno;
+  int cancelstate;
+#else
+  int exec_errorno;
+  int signal_pipe[2] = { -1, -1 };
+  ssize_t r;
+#endif
 
   if (options->cpumask != NULL) {
 #if defined(__linux__) || defined(__FreeBSD__)
@@ -441,6 +467,35 @@ int uv_spawn(uv_loop_t* loop,
       goto error;
   }
 
+  process->status = 0;
+  exec_errorno = 0;
+
+  uv_signal_start(&loop->child_watcher, uv__chld, SIGCHLD);
+
+  sigfillset(&sigset);
+  pthread_sigmask(SIG_SETMASK, &sigset, &sigset);
+
+#ifdef __linux__
+  /* Acquire write lock to prevent opening new fds in worker threads */
+  uv_rwlock_wrlock(&loop->cloexec_lock);
+  pthread_setcancelstate(PTHREAD_CANCEL_DISABLE, &cancelstate);
+
+  pid = vfork();
+
+  if (pid == -1) {
+    err = -errno;
+    uv_rwlock_wrunlock(&loop->cloexec_lock);
+    goto error;
+  }
+
+  if (pid == 0) {
+    uv__process_child_init(options, &exec_errorno, stdio_count, pipes);
+    abort();
+  }
+
+  pthread_setcancelstate(cancelstate, NULL);
+  uv_rwlock_wrunlock(&loop->cloexec_lock);
+#else /* !__linux__ */
   /* This pipe is used by the parent to wait until
    * the child has called `execve()`. We need this
    * to avoid the following race condition:
@@ -465,11 +520,6 @@ int uv_spawn(uv_loop_t* loop,
   if (err)
     goto error;
 
-  uv_signal_start(&loop->child_watcher, uv__chld, SIGCHLD);
-
-  sigfillset(&sigset);
-  sigprocmask(SIG_SETMASK, &sigset, &sigoset);
-
   /* Acquire write lock to prevent opening new fds in worker threads */
   uv_rwlock_wrlock(&loop->cloexec_lock);
 
@@ -484,8 +534,7 @@ int uv_spawn(uv_loop_t* loop,
   }
 
   if (pid == 0) {
-    sigprocmask(SIG_SETMASK, &sigoset, NULL);
-    uv__process_child_init(options, stdio_count, pipes, signal_pipe[1]);
+    uv__process_child_init(options, signal_pipe[1], stdio_count, pipes);
     abort();
   }
 
@@ -493,8 +542,6 @@ int uv_spawn(uv_loop_t* loop,
   uv_rwlock_wrunlock(&loop->cloexec_lock);
   uv__close(signal_pipe[1]);
 
-  process->status = 0;
-  exec_errorno = 0;
   do
     r = read(signal_pipe[0], &exec_errorno, sizeof(exec_errorno));
   while (r == -1 && errno == EINTR);
@@ -515,6 +562,7 @@ int uv_spawn(uv_loop_t* loop,
     abort();
 
   uv__close_nocheckstdio(signal_pipe[0]);
+#endif /* __linux__ */
 
   for (i = 0; i < options->stdio_count; i++) {
     err = uv__process_open_stream(options->stdio + i, pipes[i], i == 0);
@@ -539,7 +587,7 @@ int uv_spawn(uv_loop_t* loop,
   if (pipes != pipes_storage)
     uv__free(pipes);
 
-  sigprocmask(SIG_SETMASK, &sigoset, NULL);
+  pthread_sigmask(SIG_SETMASK, &sigset, NULL);
   return exec_errorno;
 
 error:
@@ -559,7 +607,7 @@ error:
   }
 
   free(pipes);
-  sigprocmask(SIG_SETMASK, &sigoset, NULL);
+  pthread_sigmask(SIG_SETMASK, &sigset, NULL);
 
   return err;
 #endif
