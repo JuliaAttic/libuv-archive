@@ -177,6 +177,7 @@ static int uv__process_init_stdio(uv_stdio_container_t* container, int *fd) {
 }
 
 
+#ifndef __linux__
 static void uv__write_int(int fd, int val) {
   ssize_t n;
 
@@ -189,15 +190,27 @@ static void uv__write_int(int fd, int val) {
 
   assert(n == sizeof(val));
 }
+#endif
 
 
+/*
+ * May share the parent's memory space. Do not alter global state.
+ */
 static void uv__process_child_init(const uv_process_options_t* options,
                                    int stdio_count,
                                    int *pipes,
-                                   int error_fd) {
+#ifdef __linux__
+                                   volatile int* error_out,
+#else
+                                   int error_fd,
+#endif
+                                   sigset_t sigoset) {
   int close_fd;
   int use_fd;
   int fd;
+  int err;
+
+  sigprocmask(SIG_SETMASK, &sigoset, NULL);
 
   if (options->flags & UV_PROCESS_DETACHED)
     setsid();
@@ -212,8 +225,8 @@ static void uv__process_child_init(const uv_process_options_t* options,
       continue;
     pipes[fd] = fcntl(use_fd, F_DUPFD, stdio_count);
     if (pipes[fd] == -1) {
-      uv__write_int(error_fd, -errno);
-      _exit(127);
+      err = -errno;
+      goto error;
     }
   }
 
@@ -232,8 +245,8 @@ static void uv__process_child_init(const uv_process_options_t* options,
         close_fd = use_fd;
 
         if (use_fd == -1) {
-          uv__write_int(error_fd, -errno);
-          _exit(127);
+          err = -errno;
+          goto error;
         }
       }
     }
@@ -244,8 +257,8 @@ static void uv__process_child_init(const uv_process_options_t* options,
       fd = dup2(use_fd, fd);
 
     if (fd == -1) {
-      uv__write_int(error_fd, -errno);
-      _exit(127);
+      err = -errno;
+      goto error;
     }
 
     if (fd <= 2)
@@ -263,8 +276,8 @@ static void uv__process_child_init(const uv_process_options_t* options,
   }
 
   if (options->cwd != NULL && chdir(options->cwd)) {
-    uv__write_int(error_fd, -errno);
-    _exit(127);
+    err = -errno;
+    goto error;
   }
 
   if (options->flags & (UV_PROCESS_SETUID | UV_PROCESS_SETGID)) {
@@ -279,27 +292,44 @@ static void uv__process_child_init(const uv_process_options_t* options,
   }
 
   if ((options->flags & UV_PROCESS_SETGID) && setgid(options->gid)) {
-    uv__write_int(error_fd, -errno);
-    _exit(127);
+    err = -errno;
+    goto error;
   }
 
   if ((options->flags & UV_PROCESS_SETUID) && setuid(options->uid)) {
-    uv__write_int(error_fd, -errno);
-    _exit(127);
+    err = -errno;
+    goto error;
   }
 
   if ((options->flags & UV_PROCESS_RESET_SIGPIPE) && signal(SIGPIPE,SIG_DFL) == SIG_ERR)
   {
-    uv__write_int(error_fd, -errno);
-    _exit(127);
+    err = -errno;
+    goto error;
   }
 
+
+#ifdef __linux__
+  if (options->env != NULL) {
+    execvpe(options->file, options->args, options->env);
+  } else {
+    execvp(options->file, options->args);
+  }
+#else
   if (options->env != NULL) {
     environ = options->env;
   }
 
   execvp(options->file, options->args);
-  uv__write_int(error_fd, -errno);
+#endif
+
+  err = -errno;
+
+error:
+#ifdef __linux__
+  *error_out = err;
+#else
+  uv__write_int(error_fd, err);
+#endif
   _exit(127);
 }
 
@@ -307,17 +337,22 @@ static void uv__process_child_init(const uv_process_options_t* options,
 int uv_spawn(uv_loop_t* loop,
              uv_process_t* process,
              const uv_process_options_t* options) {
-  int signal_pipe[2] = { -1, -1 };
   int *pipes;
   int stdio_count;
-  ssize_t r;
   pid_t pid;
   int err;
-  int exec_errorno;
   int i;
   int status;
   sigset_t sigset;
   sigset_t sigoset;
+#ifdef __linux__
+  volatile int exec_errorno;
+  int cancelstate;
+#else
+  int exec_errorno;
+  int signal_pipe[2] = { -1, -1 };
+  ssize_t r;
+#endif
 
   assert(options->file != NULL);
   assert(!(options->flags & ~(UV_PROCESS_DETACHED |
@@ -349,6 +384,35 @@ int uv_spawn(uv_loop_t* loop,
       goto error;
   }
 
+  process->status = 0;
+  exec_errorno = 0;
+
+  uv_signal_start(&loop->child_watcher, uv__chld, SIGCHLD);
+
+  sigfillset(&sigset);
+  sigprocmask(SIG_SETMASK, &sigset, &sigoset);
+
+#ifdef __linux__
+  /* Acquire write lock to prevent opening new fds in worker threads */
+  uv_rwlock_wrlock(&loop->cloexec_lock);
+  pthread_setcancelstate(PTHREAD_CANCEL_DISABLE, &cancelstate);
+
+  pid = vfork();
+
+  if (pid == -1) {
+    err = -errno;
+    uv_rwlock_wrunlock(&loop->cloexec_lock);
+    goto error;
+  }
+
+  if (pid == 0) {
+    uv__process_child_init(options, stdio_count, pipes, &exec_errorno, sigoset);
+    abort();
+  }
+
+  pthread_setcancelstate(cancelstate, NULL);
+  uv_rwlock_wrunlock(&loop->cloexec_lock);
+#else /* !__linux__ */
   /* This pipe is used by the parent to wait until
    * the child has called `execve()`. We need this
    * to avoid the following race condition:
@@ -373,11 +437,6 @@ int uv_spawn(uv_loop_t* loop,
   if (err)
     goto error;
 
-  uv_signal_start(&loop->child_watcher, uv__chld, SIGCHLD);
-
-  sigfillset(&sigset);
-  sigprocmask(SIG_SETMASK, &sigset, &sigoset);
-
   /* Acquire write lock to prevent opening new fds in worker threads */
   uv_rwlock_wrlock(&loop->cloexec_lock);
 
@@ -392,8 +451,7 @@ int uv_spawn(uv_loop_t* loop,
   }
 
   if (pid == 0) {
-    sigprocmask(SIG_SETMASK, &sigoset, NULL);
-    uv__process_child_init(options, stdio_count, pipes, signal_pipe[1]);
+    uv__process_child_init(options, stdio_count, pipes, signal_pipe[1], sigoset);
     abort();
   }
 
@@ -401,8 +459,6 @@ int uv_spawn(uv_loop_t* loop,
   uv_rwlock_wrunlock(&loop->cloexec_lock);
   uv__close(signal_pipe[1]);
 
-  process->status = 0;
-  exec_errorno = 0;
   do
     r = read(signal_pipe[0], &exec_errorno, sizeof(exec_errorno));
   while (r == -1 && errno == EINTR);
@@ -423,6 +479,7 @@ int uv_spawn(uv_loop_t* loop,
     abort();
 
   uv__close(signal_pipe[0]);
+#endif /* __linux__ */
 
   /* Only activate this handle if exec() happened successfully */
   if (exec_errorno == 0) {
