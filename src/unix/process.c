@@ -402,6 +402,7 @@ int uv_spawn(uv_loop_t* loop,
   if (pid == -1) {
     err = -errno;
     uv_rwlock_wrunlock(&loop->cloexec_lock);
+    sigprocmask(SIG_SETMASK, &sigoset, NULL);
     goto error;
   }
 
@@ -434,8 +435,10 @@ int uv_spawn(uv_loop_t* loop,
    * the parent polls the read end until it EOFs or errors with EPIPE.
    */
   err = uv__make_pipe(signal_pipe, 0);
-  if (err)
+  if (err) {
+    sigprocmask(SIG_SETMASK, &sigoset, NULL);
     goto error;
+  }
 
   /* Acquire write lock to prevent opening new fds in worker threads */
   uv_rwlock_wrlock(&loop->cloexec_lock);
@@ -447,6 +450,7 @@ int uv_spawn(uv_loop_t* loop,
     uv_rwlock_wrunlock(&loop->cloexec_lock);
     uv__close(signal_pipe[0]);
     uv__close(signal_pipe[1]);
+    sigprocmask(SIG_SETMASK, &sigoset, NULL);
     goto error;
   }
 
@@ -507,7 +511,6 @@ error:
   }
 
   free(pipes);
-  sigprocmask(SIG_SETMASK, &sigoset, NULL);
 
   return err;
 }
