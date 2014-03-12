@@ -215,7 +215,7 @@ static void pipe_pinger_new(void) {
   pinger->pongs = 0;
 
   /* Try to connect to the server and do NUM_PINGS ping-pongs. */
-  r = uv_pipe_init(uv_default_loop(), &pinger->stream.pipe, 0);
+  r = uv_pipe_init(uv_default_loop(), &pinger->stream.pipe, UV_PIPE_READABLE);
   pinger->stream.pipe.data = pinger;
   ASSERT(!r);
 
