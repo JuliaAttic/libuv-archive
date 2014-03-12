@@ -93,7 +93,7 @@ TEST_IMPL(shutdown_close_pipe) {
   uv_pipe_t h;
   int r;
 
-  r = uv_pipe_init(uv_default_loop(), &h, 0);
+  r = uv_pipe_init(uv_default_loop(), &h, UV_PIPE_READABLE);
   ASSERT(r == 0);
   uv_pipe_connect(&connect_req, &h, TEST_PIPENAME, connect_cb);
   r = uv_run(uv_default_loop(), UV_RUN_DEFAULT);
