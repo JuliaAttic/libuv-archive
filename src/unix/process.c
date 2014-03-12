@@ -156,29 +156,27 @@ skip:
  * Used for initializing stdio streams like options.stdin_stream. Returns
  * zero on success. See also the cleanup section in uv_spawn().
  */
-static int uv__process_init_stdio(uv_stdio_container_t* container, int fds[2]) {
+static int uv__process_init_stdio(uv_stdio_container_t* container, int *fd) {
   switch (container->type) {
     case UV_STREAM:
       if (container->data.stream == NULL) {
-        fds[1] = -1;
+        *fd = -1;
         return 0;
       } else {
-        fds[1] = container->data.stream->io_watcher.fd;
+        *fd = container->data.stream->io_watcher.fd;
       }
       break;
     case UV_RAW_FD:
     case UV_RAW_HANDLE:
-      fds[1] = container->data.fd;
+      *fd = container->data.fd;
       break;
     default:
       assert (0 && "Unexpected flags");
-      fds[1] = -1;
-    return -EINVAL;
-      errno = EINVAL;
+      *fd = -1;
+      return -EINVAL;
   }
-  if (fds[1] == -1) {
-    errno = EINVAL;
-    return -1;
+  if (*fd == -1) {
+    return -EINVAL;
   } else {
     return 0;
   }
@@ -200,27 +198,36 @@ static void uv__write_int(int fd, int val) {
 
 static void uv__process_child_init(const uv_process_options_t* options,
                                    int stdio_count,
-                                   int (*pipes)[2],
+                                   int *pipes,
                                    int error_fd) {
-  int use_fd, close_fd;
-  int fd;
+  int use_fd;
+  int fd, fd2;
 
   if (options->flags & UV_PROCESS_DETACHED)
     setsid();
 
+  /* check ordering of fd handles */
   for (fd = 0; fd < stdio_count; fd++) {
-    close_fd = pipes[fd][0];
-    use_fd = pipes[fd][1];
+    use_fd = pipes[fd];
+    if (use_fd >= 0 && use_fd < fd) {
+      pipes[fd] = dup(use_fd);
+      if (pipes[fd] == -1) {
+        uv__write_int(error_fd, -errno);
+        // perror("failed to open stdio");
+        _exit(127);
+      }
+      close(use_fd); /* don't use uv__close, since we may be (temporarily) closing stdio */
+    }
+  }
+  for (fd = 0; fd < stdio_count; fd++) {
+    use_fd = pipes[fd];
 
     if (use_fd < 0) {
       if (fd >= 3)
         continue;
       else {
-        /* redirect stdin, stdout and stderr to /dev/null even if UV_IGNORE is
-         * set
-         */
+        /* redirect stdin, stdout and stderr to /dev/null even if UV_IGNORE is set */
         use_fd = open("/dev/null", fd == 0 ? O_RDONLY : O_RDWR);
-        close_fd = use_fd;
 
         if (use_fd == -1) {
           uv__write_int(error_fd, -errno);
@@ -237,8 +244,16 @@ static void uv__process_child_init(const uv_process_options_t* options,
     if (fd <= 2)
       uv__nonblock(fd, 0);
 
-    if (close_fd != -1)
-      uv__close(close_fd);
+    /* check for reuse of fd handle */
+    for (fd2 = fd + 1; fd2 < stdio_count; fd2++) {
+      if (pipes[fd] == use_fd) {
+          use_fd = -1;
+          break;
+      }
+    }
+    /* close if handle is not reused */
+    if (use_fd >= 0 && use_fd != fd)
+        close(use_fd); // don't use uv__close, since we may be (temporarily) closing stdio
   }
 
   if (options->cwd != NULL && chdir(options->cwd)) {
@@ -281,7 +296,7 @@ int uv_spawn(uv_loop_t* loop,
              uv_process_t* process,
              const uv_process_options_t* options) {
   int signal_pipe[2] = { -1, -1 };
-  int (*pipes)[2];
+  int *pipes;
   int stdio_count;
   QUEUE* q;
   ssize_t r;
@@ -310,12 +325,11 @@ int uv_spawn(uv_loop_t* loop,
     goto error;
 
   for (i = 0; i < stdio_count; i++) {
-    pipes[i][0] = -1;
-    pipes[i][1] = -1;
+    pipes[i] = -1;
   }
 
   for (i = 0; i < options->stdio_count; i++) {
-    err = uv__process_init_stdio(options->stdio + i, pipes[i]);
+    err = uv__process_init_stdio(options->stdio + i, &pipes[i]);
     if (err)
       goto error;
   }
@@ -401,10 +415,8 @@ error:
   for (i = 0; i < stdio_count; i++) {
     if (options->stdio[i].type == UV_STREAM && options->stdio[i].data.stream == NULL)
     {
-      if (pipes[i][0] != -1)
-        close(pipes[i][0]);
-      if (pipes[i][1] != -1)
-        close(pipes[i][1]);
+      if (pipes[i] != -1)
+        close(pipes[i]);
     }
   }
 

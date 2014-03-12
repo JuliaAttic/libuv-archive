@@ -221,9 +221,9 @@ int stdio_over_pipes_helper(void) {
   ASSERT(UV_NAMED_PIPE == uv_guess_handle(0));
   ASSERT(UV_NAMED_PIPE == uv_guess_handle(1));
 
-  r = uv_pipe_init(loop, &stdin_pipe, 0);
+  r = uv_pipe_init(loop, &stdin_pipe, UV_PIPE_READABLE);
   ASSERT(r == 0);
-  r = uv_pipe_init(loop, &stdout_pipe, 0);
+  r = uv_pipe_init(loop, &stdout_pipe, UV_PIPE_WRITABLE);
   ASSERT(r == 0);
 
   uv_pipe_open(&stdin_pipe, 0);
