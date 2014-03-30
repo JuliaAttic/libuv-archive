@@ -54,7 +54,7 @@ int uv_tty_init(uv_loop_t* loop, uv_tty_t* tty, int fd, int readable) {
    * different struct file, hence changing its properties doesn't affect
    * other processes.
    */
-  if (isatty(fd)) {
+  if (0 && isatty(fd)) {
     r = uv__open_cloexec("/dev/tty", O_RDWR);
 
     if (r < 0) {
