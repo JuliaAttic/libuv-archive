@@ -666,13 +666,12 @@ int make_program_env(char* env_block[], WCHAR** dst_ptr) {
 
   for (i = 0; i < ARRAY_SIZE(required_vars); ++i) {
     if (!required_vars[i].supplied) {
-      env_len += required_vars[i].len;
       var_size = GetEnvironmentVariableW(required_vars[i].wide, NULL, 0);
-      if (var_size == 0) {
-        return GetLastError();
-      }
       required_vars[i].value_len = var_size;
-      env_len += var_size;
+      if (var_size != 0) {
+        env_len += required_vars[i].len;
+        env_len += var_size;
+      }
     }
   }
 
@@ -697,7 +696,7 @@ int make_program_env(char* env_block[], WCHAR** dst_ptr) {
   }
 
   for (i = 0; i < ARRAY_SIZE(required_vars); ++i) {
-    if (!required_vars[i].supplied) {
+    if (!required_vars[i].supplied && required_vars[i].value_len!=0) {
       wcscpy(ptr, required_vars[i].wide);
       ptr += required_vars[i].len - 1;
       *ptr++ = L'=';
