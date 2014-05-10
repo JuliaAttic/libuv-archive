@@ -617,6 +617,11 @@ static void check_required_vars_contains_var(env_var_t* required, int count,
  * TEMP. SYSTEMDRIVE is probably also important. We therefore ensure that
  * these get defined if the input environment block does not contain any
  * values for them.
+ *
+ * Also add variables known to Cygwin to be required for correct
+ * subprocess operation in many cases:
+ * https://github.com/Alexpux/Cygwin/blob/b266b04fbbd3a595f02ea149e4306d3ab9b1fe3d/winsup/cygwin/environ.cc#L955
+ *
  */
 int make_program_env(char* env_block[], WCHAR** dst_ptr) {
   WCHAR* dst;
@@ -631,6 +636,14 @@ int make_program_env(char* env_block[], WCHAR** dst_ptr) {
     E_V("SYSTEMROOT"),
     E_V("SYSTEMDRIVE"),
     E_V("TEMP"),
+    E_V("HOMEDRIVE"),
+    E_V("HOMEPATH"),
+    E_V("USERDOMAIN"),
+    E_V("USERNAME"),
+    E_V("USERPROFILE"),
+    E_V("WINDIR"),
+    E_V("PATH"),
+    E_V("LOGONSERVER"),
   };
 
   for (env = env_block; *env; env++) {
