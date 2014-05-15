@@ -1948,9 +1948,9 @@ int uv_pipe_open(uv_pipe_t* pipe, uv_file file) {
 
   pipe->handle = os_handle;
   if (access.AccessFlags&FILE_WRITE_DATA)
-    pipe->flags |= UV_HANDLE_READABLE;
-  if (access.AccessFlags&FILE_READ_DATA)
     pipe->flags |= UV_HANDLE_WRITABLE;
+  if (access.AccessFlags&FILE_READ_DATA)
+    pipe->flags |= UV_HANDLE_READABLE;
 
   if (pipe->flags&UV_HANDLE_PIPE_IPC) {
     assert(!(pipe->flags & UV_HANDLE_NON_OVERLAPPED_PIPE));
