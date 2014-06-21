@@ -35,63 +35,14 @@ static uv_spinlock_t termios_spinlock = UV_SPINLOCK_INITIALIZER;
 
 
 int uv_tty_init(uv_loop_t* loop, uv_tty_t* tty, int fd, int readable) {
-  uv_handle_type type;
   int flags;
   int newfd;
   int r;
 
-  /* File descriptors that refer to files cannot be monitored with epoll.
-   * That restriction also applies to character devices like /dev/random
-   * (but obviously not /dev/tty.)
-   */
-  type = uv_guess_handle(fd);
-  if (type == UV_FILE || type == UV_UNKNOWN_HANDLE)
-    return -EINVAL;
-
   flags = 0;
   newfd = -1;
 
-  /* Reopen the file descriptor when it refers to a tty. This lets us put the
-   * tty in non-blocking mode without affecting other processes that share it
-   * with us.
-   *
-   * Example: `node | cat` - if we put our fd 0 in non-blocking mode, it also
-   * affects fd 1 of `cat` because both file descriptors refer to the same
-   * struct file in the kernel. When we reopen our fd 0, it points to a
-   * different struct file, hence changing its properties doesn't affect
-   * other processes.
-   */
-  if (type == UV_TTY) {
-    r = uv__open_cloexec("/dev/tty", O_RDWR);
-
-    if (r < 0) {
-      /* fallback to using blocking writes */
-      if (!readable)
-        flags |= UV_STREAM_BLOCKING;
-      goto skip;
-    }
-
-    newfd = r;
-
-    r = uv__dup2_cloexec(newfd, fd);
-    if (r < 0 && r != -EINVAL) {
-      /* EINVAL means newfd == fd which could conceivably happen if another
-       * thread called close(fd) between our calls to isatty() and open().
-       * That's a rather unlikely event but let's handle it anyway.
-       */
-      uv__close(newfd);
-      return r;
-    }
-
-    fd = newfd;
-  }
-
-skip:
   uv__stream_init(loop, (uv_stream_t*) tty, UV_TTY);
-
-  /* If anything fails beyond this point we need to remove the handle from
-   * the handle queue, since it was added by uv__handle_init in uv_stream_init.
-   */
 
 #if defined(__APPLE__)
   r = uv__stream_try_select((uv_stream_t*) tty, &fd);
@@ -108,8 +59,7 @@ skip:
   else
     flags |= UV_STREAM_WRITABLE;
 
-  if (!(flags & UV_STREAM_BLOCKING))
-    uv__nonblock(fd, 1);
+  flags |= UV_STREAM_BLOCKING;
 
   uv__stream_open((uv_stream_t*) tty, fd, flags);
   tty->mode = UV_TTY_MODE_NORMAL;
