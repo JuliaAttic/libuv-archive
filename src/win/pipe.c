@@ -814,12 +814,37 @@ error:
   return;
 }
 
+uv_mutex_t *uv_pipe_readfile_pause(const uv_pipe_t* handle) {
+  uv_mutex_t *m = handle->readfile_mutex;
+  if (m) {
+      /* Pause the ReadFile task briefly, to work
+         around the Windows kernel bug that causes
+         any access to a NamedPipe to deadlock if
+         any process has called ReadFile */
+      HANDLE h;
+      uv_mutex_lock(m);
+      h = handle->readfile_thread;
+      while (h) {
+        /* spinlock: we expect this to finish quickly,
+           or we are probably about to deadlock anyways
+           (in the kernel), so it doesn't matter */
+        pCancelSynchronousIo(h);
+        SwitchToThread(); /* yield thread control briefly */
+        h = handle->readfile_thread;
+      }
+  }
+  return m;
+}
 
 /* Cleans up uv_pipe_t (server or connection) and all resources associated */
 /* with it. */
 void uv_pipe_cleanup(uv_loop_t* loop, uv_pipe_t* handle) {
   int i;
   HANDLE pipeHandle;
+  uv_mutex_t *m;
+
+  handle->flags &= ~UV_HANDLE_READING;
+  m = uv_pipe_readfile_pause(handle);
 
   if (handle->name) {
     free(handle->name);
@@ -846,6 +871,13 @@ void uv_pipe_cleanup(uv_loop_t* loop, uv_pipe_t* handle) {
     CloseHandle(handle->handle);
     handle->handle = INVALID_HANDLE_VALUE;
   }
+
+  if (m) {
+    handle->readfile_mutex = NULL;
+    uv_mutex_unlock(m);
+    uv_mutex_destroy(m);
+  }
+
 }
 
 
@@ -1804,10 +1836,6 @@ void uv_process_pipe_accept_req(uv_loop_t* loop, uv_pipe_t* handle,
     return;
   }
 
-  if (handle->readfile_mutex) {
-    uv_mutex_lock(handle->readfile_mutex);
-  }
-
   if (REQ_SUCCESS(req)) {
     assert(req->pipeHandle != INVALID_HANDLE_VALUE);
     req->next_pending = handle->pending_accepts;
@@ -1824,13 +1852,6 @@ void uv_process_pipe_accept_req(uv_loop_t* loop, uv_pipe_t* handle,
     if (!(handle->flags & UV__HANDLE_CLOSING)) {
       uv_pipe_queue_accept(loop, handle, req, FALSE);
     }
-  }
-
-  uv_mutex_t *m = handle->readfile_mutex;
-  if (m) {
-    handle->readfile_mutex = NULL;
-    uv_mutex_unlock(m);
-    uv_mutex_destroy(m);
   }
 
   DECREASE_PENDING_REQ_COUNT(handle);
@@ -2044,7 +2065,6 @@ int uv_pipe_open(uv_pipe_t* pipe, uv_file file) {
   return 0;
 }
 
-
 int uv_pipe_getsockname(const uv_pipe_t* handle, char* buf, size_t* len) {
   NTSTATUS nt_status;
   IO_STATUS_BLOCK io_status;
@@ -2055,7 +2075,7 @@ int uv_pipe_getsockname(const uv_pipe_t* handle, char* buf, size_t* len) {
   unsigned int name_size;
   unsigned int name_len;
   int err;
-  uv_mutex_t *m = handle->readfile_mutex;
+  uv_mutex_t *m;
 
   name_info = NULL;
 
@@ -2064,23 +2084,7 @@ int uv_pipe_getsockname(const uv_pipe_t* handle, char* buf, size_t* len) {
     return UV_EINVAL;
   }
 
-  if (m) {
-      /* Pause the ReadFile task briefly, to work
-         around the Windows kernel bug that causes
-         any access to a NamedPipe to deadlock if
-         any process has called ReadFile */
-      HANDLE h;
-      uv_mutex_lock(m);
-      h = handle->readfile_thread;
-      while (h) {
-        /* spinlock: we expect this to finish quickly,
-           or we are probably about to deadlock anyways
-           (in the kernel), so it doesn't matter */
-        pCancelSynchronousIo(h);
-        SwitchToThread(); /* yield thread control briefly */
-        h = handle->readfile_thread;
-      }
-  }
+  m = uv_pipe_readfile_pause(handle);
 
   nt_status = pNtQueryInformationFile(handle->handle,
                                       &io_status,

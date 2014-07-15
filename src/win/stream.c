@@ -107,20 +107,9 @@ int uv_read_stop(uv_stream_t* handle) {
     err = uv_tty_read_stop((uv_tty_t*) handle);
   } else {
     handle->flags &= ~UV_HANDLE_READING;
-    if (handle->type == UV_NAMED_PIPE &&
-        !(handle->flags & UV_HANDLE_PIPESERVER) &&
-        (handle->flags & UV_HANDLE_NON_OVERLAPPED_PIPE)) {
-      uv_pipe_t *pipe = (uv_pipe_t*)handle;
-      uv_mutex_t *m = pipe->readfile_mutex;
-      HANDLE h;
+    if (handle->type == UV_NAMED_PIPE) {
+      uv_mutex_t *m = uv_pipe_readfile_pause((uv_pipe_t*)handle);
       if (m) {
-        uv_mutex_lock(m);
-        h = pipe->readfile_thread;
-        while (h) {
-          pCancelSynchronousIo(h);
-          SwitchToThread();
-          h = pipe->readfile_thread;
-        }
         uv_mutex_unlock(m);
       }
     }

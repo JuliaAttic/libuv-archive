@@ -177,6 +177,7 @@ int uv_pipe_write(uv_loop_t* loop, uv_write_t* req, uv_pipe_t* handle,
 int uv_pipe_write2(uv_loop_t* loop, uv_write_t* req, uv_pipe_t* handle,
     const uv_buf_t bufs[], unsigned int nbufs, uv_stream_t* send_handle,
     uv_write_cb cb);
+uv_mutex_t *uv_pipe_readfile_pause(const uv_pipe_t* handle);
 
 void uv_process_pipe_read_req(uv_loop_t* loop, uv_pipe_t* handle,
     uv_req_t* req);
