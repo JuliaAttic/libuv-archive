@@ -477,6 +477,11 @@ void uv_pipe_endgame(uv_loop_t* loop, uv_pipe_t* handle) {
   IO_STATUS_BLOCK io_status;
   FILE_PIPE_LOCAL_INFORMATION pipe_info;
   uv__ipc_queue_item_t* item;
+  uv_mutex_t* m = handle->readfile_mutex;
+  if (m) {
+    handle->readfile_mutex = NULL;
+    uv_mutex_destroy(m);
+  }
 
   if ((handle->flags & UV_HANDLE_CONNECTION) &&
       handle->shutdown_req != NULL &&
@@ -845,6 +850,9 @@ void uv_pipe_cleanup(uv_loop_t* loop, uv_pipe_t* handle) {
 
   handle->flags &= ~UV_HANDLE_READING;
   m = uv_pipe_readfile_pause(handle);
+  if (m) {
+    uv_mutex_unlock(m);
+  }
 
   if (handle->name) {
     free(handle->name);
@@ -870,12 +878,6 @@ void uv_pipe_cleanup(uv_loop_t* loop, uv_pipe_t* handle) {
       && handle->handle != INVALID_HANDLE_VALUE) {
     CloseHandle(handle->handle);
     handle->handle = INVALID_HANDLE_VALUE;
-  }
-
-  if (m) {
-    handle->readfile_mutex = NULL;
-    uv_mutex_unlock(m);
-    uv_mutex_destroy(m);
   }
 
 }
