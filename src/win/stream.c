@@ -117,7 +117,7 @@ int uv_read_stop(uv_stream_t* handle) {
         uv_mutex_lock(m);
         h = pipe->readfile_thread;
         while (h) {
-          CancelSynchronousIo(h);
+          pCancelSynchronousIo(h);
           SwitchToThread();
           h = pipe->readfile_thread;
         }

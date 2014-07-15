@@ -118,7 +118,8 @@ static void uv_pipe_connection_init(uv_pipe_t* handle) {
   handle->read_req.data = handle;
   handle->eof_timer = NULL;
   assert(!(handle->flags & UV_HANDLE_PIPESERVER));
-  if (handle->flags & UV_HANDLE_NON_OVERLAPPED_PIPE) {
+  if (pCancelSynchronousIo &&
+      handle->flags & UV_HANDLE_NON_OVERLAPPED_PIPE) {
     /* allocate a mutex for synchronizing the blocking ReadFile calls */
     uv_mutex_t *m = (uv_mutex_t*)malloc(sizeof(uv_mutex_t));
     /* libuv will be somewhat more likely to deadlock if this fails,
@@ -2075,7 +2076,7 @@ int uv_pipe_getsockname(const uv_pipe_t* handle, char* buf, size_t* len) {
         /* spinlock: we expect this to finish quickly,
            or we are probably about to deadlock anyways
            (in the kernel), so it doesn't matter */
-        CancelSynchronousIo(h);
+        pCancelSynchronousIo(h);
         SwitchToThread(); /* yield thread control briefly */
         h = handle->readfile_thread;
       }
