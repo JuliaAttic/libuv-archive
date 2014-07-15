@@ -2234,7 +2234,7 @@ cleanup:
 
 
 int uv_pipe_pending_count(uv_pipe_t* handle) {
-  if (!handle->flags&UV_HANDLE_PIPE_IPC)
+  if (!(handle->flags&UV_HANDLE_PIPE_IPC))
     return 0;
   return handle->pipe.conn.pending_ipc_info.queue_len;
 }
@@ -2267,7 +2267,7 @@ int uv_pipe_getpeername(const uv_pipe_t* handle, char* buffer, size_t* size) {
 
 
 uv_handle_type uv_pipe_pending_type(uv_pipe_t* handle) {
-  if (!handle->flags&UV_HANDLE_PIPE_IPC)
+  if (!(handle->flags&UV_HANDLE_PIPE_IPC))
     return UV_UNKNOWN_HANDLE;
   if (handle->pipe.conn.pending_ipc_info.queue_len == 0)
     return UV_UNKNOWN_HANDLE;
