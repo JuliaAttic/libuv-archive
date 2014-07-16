@@ -261,9 +261,9 @@ static int uv__create_stdio_pipe_pair(uv_loop_t* loop,
     server_access |= PIPE_ACCESS_INBOUND;
     if(read->flags&UV_HANDLE_WRITABLE)
         server_access |= PIPE_ACCESS_OUTBOUND;
-    client_access |= GENERIC_WRITE;
+    client_access |= GENERIC_WRITE | FILE_READ_ATTRIBUTES;
     if(write->flags&UV_HANDLE_READABLE)
-        client_access |= GENERIC_READ | FILE_WRITE_ATTRIBUTES;
+        client_access |= GENERIC_READ;
     server_pipe=read;
     client_pipe=write;
   }
@@ -321,7 +321,15 @@ static int uv__create_stdio_pipe_pair(uv_loop_t* loop,
 
   if (client_pipe->flags&UV_HANDLE_PIPE_SPAWN_SAFE) {
         client_pipe->flags|=UV_HANDLE_NON_OVERLAPPED_PIPE;
+  } else {
+    if (CreateIoCompletionPort(client_pipe->handle,
+                               loop->iocp,
+                               (ULONG_PTR)client_pipe,
+                               0) == NULL) {
+      client_pipe->flags |= UV_HANDLE_EMULATE_IOCP;
+    }
   }
+
   uv_pipe_connection_init(client_pipe);
 
   return 0;
