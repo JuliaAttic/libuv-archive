@@ -991,42 +991,87 @@ TEST_IMPL(environment_creation) {
     "BAZ=QUX",
     NULL
   };
-
-  WCHAR expected[512];
-  WCHAR* ptr = expected;
+  WCHAR* wenvironment[] = {
+    L"BAZ=QUX",
+    L"FOO=BAR",
+    L"SYSTEM=ROOT", /* substring of a supplied var name */
+    L"SYSTEMROOTED=OMG", /* supplied var name is a substring */
+    L"TEMP=C:\\Temp",
+  };
+  WCHAR* from_env[] = {
+    /* list should be kept in sync with list
+     * in process.c, minus variables in wenvironment */
+    L"HOMEDRIVE",
+    L"HOMEPATH",
+    L"LOGONSERVER",
+    L"PATH",
+    L"USERDOMAIN",
+    L"USERNAME",
+    L"USERPROFILE",
+    L"SYSTEMDRIVE",
+    L"SYSTEMROOT",
+    L"WINDIR",
+    /* test for behavior in the absence of a
+     * required-environment variable: */
+    L"ZTHIS_ENV_VARIABLE_DOES_NOT_EXIST", 
+  };
+  int found_in_loc_env[ARRAY_SIZE(wenvironment)] = {0};
+  int found_in_usr_env[ARRAY_SIZE(from_env)] = {0};
+  WCHAR *expected[ARRAY_SIZE(from_env)];
   int result;
   WCHAR* str;
+  WCHAR* prev;
   WCHAR* env;
 
-  for (i = 0; i < sizeof(environment) / sizeof(environment[0]) - 1; i++) {
-    ptr += uv_utf8_to_utf16(environment[i],
-                            ptr,
-                            expected + sizeof(expected) - ptr);
+  for (i = 0; i < ARRAY_SIZE(from_env); i++) {
+      /* copy expected additions to environment locally */
+      size_t len = GetEnvironmentVariableW(from_env[i], NULL, 0);
+      if (len == 0) {
+        found_in_usr_env[i] = 1;
+      } else {
+        size_t name_len = wcslen(from_env[i]);
+        str = (WCHAR*)malloc((name_len+1+len)*sizeof(WCHAR));
+        expected[i] = str;
+        wmemcpy(str, from_env[i], name_len);
+        str += name_len;
+        *str++ = L'=';
+        GetEnvironmentVariableW(from_env[i], str, len);
+     }
   }
-
-  memcpy(ptr, L"SYSTEMROOT=", sizeof(L"SYSTEMROOT="));
-  ptr += sizeof(L"SYSTEMROOT=")/sizeof(WCHAR) - 1;
-  ptr += GetEnvironmentVariableW(L"SYSTEMROOT",
-                                 ptr,
-                                 expected + sizeof(expected) - ptr);
-  ++ptr;
-
-  memcpy(ptr, L"SYSTEMDRIVE=", sizeof(L"SYSTEMDRIVE="));
-  ptr += sizeof(L"SYSTEMDRIVE=")/sizeof(WCHAR) - 1;
-  ptr += GetEnvironmentVariableW(L"SYSTEMDRIVE",
-                                 ptr,
-                                 expected + sizeof(expected) - ptr);
-  ++ptr;
-  *ptr = '\0';
 
   result = make_program_env(environment, &env);
   ASSERT(result == 0);
 
-  for (str = env; *str; str += wcslen(str) + 1) {
+  for (str = env, prev = NULL; *str; prev = str, str += wcslen(str) + 1) {
+    int found = 0;
     wprintf(L"%s\n", str);
+    for (i = 0; i < ARRAY_SIZE(wenvironment) && !found; i++) {
+      if (!wcscmp(str, wenvironment[i])) {
+        ASSERT(!found_in_loc_env[i]);
+        found_in_loc_env[i] = 1;
+        found = 1;
+      }
+    }
+    for (i = 0; i < ARRAY_SIZE(expected) && !found; i++) {
+      if (!wcscmp(str, expected[i])) {
+        ASSERT(!found_in_usr_env[i]);
+        found_in_usr_env[i] = 1;
+        found = 1;
+      }
+    }
+    if (prev) { /* verify sort order */
+      ASSERT(CompareStringOrdinal(prev, -1, str, -1, TRUE) == 1);
+    }
+    ASSERT(found); /* verify that we expected this variable */
   }
 
-  ASSERT(wcscmp(expected, env) == 0);
+  /* verify that we found all expected variables */
+  for (i = 0; i < ARRAY_SIZE(wenvironment); i++) {
+    ASSERT(found_in_loc_env[i]);
+  }
+  for (i = 0; i < ARRAY_SIZE(expected); i++) {
+    ASSERT(found_in_usr_env[i]);
+  }
 
   return 0;
 }
