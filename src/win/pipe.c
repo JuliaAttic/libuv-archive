@@ -305,8 +305,11 @@ static int uv__create_stdio_pipe_pair(uv_loop_t* loop,
                                      NULL,
                                      NULL,
                                      0);
-    assert(r == TRUE);
-    assert(mode == (PIPE_READMODE_BYTE | PIPE_WAIT));
+    if (r == TRUE) {
+        assert(mode == (PIPE_READMODE_BYTE | PIPE_WAIT));
+    } else {
+        fprintf(stderr, "libuv assertion failure: GetNamedPipeHandleState failed\n");
+    }
   }
 #endif
 
