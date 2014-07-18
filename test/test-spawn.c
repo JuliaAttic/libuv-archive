@@ -767,7 +767,7 @@ TEST_IMPL(spawn_same_stdout_stderr) {
 
 
 TEST_IMPL(spawn_closed_process_io) {
-  uv_pipe_t in;
+  uv_pipe_t in, child_pipe;
   uv_write_t write_req;
   uv_buf_t buf;
   uv_stdio_container_t stdio[2];
@@ -776,9 +776,13 @@ TEST_IMPL(spawn_closed_process_io) {
   init_process_options("spawn_helper3", exit_cb);
 
   uv_pipe_init(uv_default_loop(), &in, 0);
+  ASSERT(0 == uv_pipe_init(uv_default_loop(), &in, UV_PIPE_WRITABLE));
+  uv_pipe_init(uv_default_loop(), &child_pipe, UV_PIPE_READABLE|UV_PIPE_SPAWN_SAFE);
+  ASSERT(0 == uv_pipe_link(&child_pipe,&in));
+
   options.stdio = stdio;
-  options.stdio[0].flags = UV_CREATE_PIPE | UV_READABLE_PIPE;
-  options.stdio[0].data.stream = (uv_stream_t*) &in;
+  options.stdio[0].type = UV_STREAM;
+  options.stdio[0].data.stream = (uv_stream_t*)&child_pipe;
   options.stdio_count = 1;
 
   close(0); /* Close process stdin. */
@@ -869,7 +873,7 @@ TEST_IMPL(spawn_detect_pipe_name_collisions_on_windows) {
   options.stdio[1].data.stream = (uv_stream_t*)&child_stdout;
   options.stdio_count = 2;
 
-  r = uv_spawn(uv_default_loop(), &process, options);
+  r = uv_spawn(uv_default_loop(), &process, &options);
   ASSERT(r == 0);
 
   uv_pipe_close_sync(&child_stdout);
