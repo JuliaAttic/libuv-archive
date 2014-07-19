@@ -599,17 +599,47 @@ error:
   return err;
 }
 
-static int env_strncmp(const wchar_t* a, int n, const wchar_t* b) {
+#define LOCALE_NAME_INVARIANT 0x007f
+int env_strncmp(const wchar_t* a, int na, const wchar_t* b) {
+  wchar_t* a_eq;
+  wchar_t* b_eq;
+  wchar_t* A;
+  wchar_t* B;
   int nb;
-  if (n >= 0) {
-    nb = wcslen(b);
-    if (nb > n) {
-      nb = n;
-    }
+  int r;
+
+  if (na < 0) {
+    a_eq = wcschr(a, L'=');
+    assert(a_eq);
+    na = (int)(long)(a_eq - a);
   } else {
-    nb = -1;
+    na--;
   }
-  return CompareStringOrdinal(a, n, b, nb, TRUE) - 2;
+  b_eq = wcschr(b, L'=');
+  assert(b_eq);
+  nb = b_eq - b;
+
+  A = (wchar_t*)alloca((na+1)*sizeof(wchar_t));
+  B = (wchar_t*)alloca((nb+1)*sizeof(wchar_t));
+
+  r = LCMapStringW(LOCALE_INVARIANT,LCMAP_UPPERCASE,a,na,A,na);
+  assert(r==na);
+  A[na] = L'\0';
+  r = LCMapStringW(LOCALE_INVARIANT,LCMAP_UPPERCASE,b,nb,B,nb);
+  assert(r==nb);
+  B[nb] = L'\0';
+
+  while (1) {
+    wchar_t AA = *A++;
+    wchar_t BB = *B++;
+    if (AA < BB) {
+      return -1;
+    } else if (AA > BB) {
+      return 1;
+    } else if (!AA && !BB) {
+      return 0;
+    }
+  }
 }
 
 static int qsort_wcscmp(const void *a, const void *b) {
@@ -651,17 +681,19 @@ int make_program_env(char* env_block[], WCHAR** dst_ptr) {
   /* first pass: determine size in UTF-16 */
   for (env = env_block; *env; env++) {
     int len;
-    len = MultiByteToWideChar(CP_UTF8,
-                              0,
-                              *env,
-                              -1,
-                              NULL,
-                              0);
-    if (len <= 0) {
-      return GetLastError();
+    if (strchr(*env, '=')) {
+      len = MultiByteToWideChar(CP_UTF8,
+                                0,
+                                *env,
+                                -1,
+                                NULL,
+                                0);
+      if (len <= 0) {
+        return GetLastError();
+      }
+      env_len += len;
+      env_block_count++;
     }
-    env_len += len;
-    env_block_count++;
   }
 
   /* second pass: copy to UTF-16 environment block */
@@ -673,19 +705,22 @@ int make_program_env(char* env_block[], WCHAR** dst_ptr) {
 
   ptr = dst_copy;
   ptr_copy = env_copy;
-  for (env = env_block; *env; env++, ptr += len) {
-    len = MultiByteToWideChar(CP_UTF8,
-                              0,
-                              *env,
-                              -1,
-                              ptr,
-                              (int) (env_len - (ptr - dst_copy)));
-    if (len <= 0) {
-      DWORD err = GetLastError();
-      _freea(dst_copy);
-      return err;
+  for (env = env_block; *env; env++) {
+    if (strchr(*env, '=')) {
+      len = MultiByteToWideChar(CP_UTF8,
+                                0,
+                                *env,
+                                -1,
+                                ptr,
+                                (int) (env_len - (ptr - dst_copy)));
+      if (len <= 0) {
+        DWORD err = GetLastError();
+        _freea(dst_copy);
+        return err;
+      }
+      *ptr_copy++ = ptr;
+      ptr += len;
     }
-    *ptr_copy++ = ptr;
   }
   *ptr_copy = NULL;
   assert(env_len == ptr - dst_copy);
@@ -742,8 +777,7 @@ int make_program_env(char* env_block[], WCHAR** dst_ptr) {
       /* missing required var */
       len = required_vars_value_len[i];
       if (len) {
-        DWORD r = wcscpy_s(ptr, (env_len - (ptr - dst)), required_vars[i].wide_eq);
-        assert(!r);
+        wcscpy(ptr, required_vars[i].wide_eq);
         ptr += required_vars[i].len;
         var_size = GetEnvironmentVariableW(required_vars[i].wide, ptr, (int) (env_len - (ptr - dst)));
         if (var_size != len-1) { /* race condition? */
