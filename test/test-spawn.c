@@ -988,11 +988,23 @@ TEST_IMPL(environment_creation) {
     "SYSTEM=ROOT", /* substring of a supplied var name */
     "SYSTEMROOTED=OMG", /* supplied var name is a substring */
     "TEMP=C:\\Temp",
+    "INVALID",
     "BAZ=QUX",
+    "B_Z=QUX",
+    "B\xe2\x82\xacZ=QUX",
+    "B\xf0\x90\x80\x82Z=QUX",
+    "B\xef\xbd\xa1Z=QUX",
+    "B\xf0\xa3\x91\x96Z=QUX",
+    "BAZ", /* repeat, invalid variable */
     NULL
   };
   WCHAR* wenvironment[] = {
     L"BAZ=QUX",
+    L"B_Z=QUX",
+    L"B\x20acZ=QUX",
+    L"B\xd800\xdc02Z=QUX",
+    L"B\xd84d\xdc56Z=QUX",
+    L"B\xff61Z=QUX",
     L"FOO=BAR",
     L"SYSTEM=ROOT", /* substring of a supplied var name */
     L"SYSTEMROOTED=OMG", /* supplied var name is a substring */
@@ -1044,7 +1056,7 @@ TEST_IMPL(environment_creation) {
 
   for (str = env, prev = NULL; *str; prev = str, str += wcslen(str) + 1) {
     int found = 0;
-    wprintf(L"%s\n", str);
+    _cputws(str); putchar('\n');
     for (i = 0; i < ARRAY_SIZE(wenvironment) && !found; i++) {
       if (!wcscmp(str, wenvironment[i])) {
         ASSERT(!found_in_loc_env[i]);
@@ -1059,7 +1071,7 @@ TEST_IMPL(environment_creation) {
         found = 1;
       }
     }
-    if (prev) { /* verify sort order */
+    if (prev) { /* verify sort order -- requires Vista */
       ASSERT(CompareStringOrdinal(prev, -1, str, -1, TRUE) == 1);
     }
     ASSERT(found); /* verify that we expected this variable */
