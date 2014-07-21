@@ -777,8 +777,7 @@ int make_program_env(char* env_block[], WCHAR** dst_ptr) {
       /* missing required var */
       len = required_vars_value_len[i];
       if (len) {
-        DWORD r = wcscpy_s(ptr, (env_len - (ptr - dst)), required_vars[i].wide_eq);
-        assert(!r);
+        wcscpy(ptr, required_vars[i].wide_eq);
         ptr += required_vars[i].len;
         var_size = GetEnvironmentVariableW(required_vars[i].wide, ptr, (int) (env_len - (ptr - dst)));
         if (var_size != len-1) { /* race condition? */
