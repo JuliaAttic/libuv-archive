@@ -25,6 +25,7 @@
 #include <stdlib.h>
 #include <signal.h>
 #include <limits.h>
+#include <malloc.h>
 
 #include "uv.h"
 #include "internal.h"
