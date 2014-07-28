@@ -2015,6 +2015,7 @@ int uv_pipe_open(uv_pipe_t* pipe, uv_file file) {
   NTSTATUS nt_status;
   IO_STATUS_BLOCK io_status;
   FILE_ACCESS_INFORMATION access;
+  DWORD duplex_flags = 0;
 
   /* Determine what kind of permissions we have on this handle */
   nt_status = pNtQueryInformationFile(os_handle,
@@ -2033,7 +2034,6 @@ int uv_pipe_open(uv_pipe_t* pipe, uv_file file) {
     }
   }
 
-  DWORD duplex_flags = 0;
   if (access.AccessFlags&FILE_WRITE_DATA)
     duplex_flags |= UV_HANDLE_WRITABLE;
   if (access.AccessFlags&FILE_READ_DATA)

@@ -678,6 +678,7 @@ int make_program_env(char* env_block[], WCHAR** dst_ptr) {
   WCHAR** ptr_copy;
   WCHAR** env_copy;
   DWORD* required_vars_value_len = (DWORD*)alloca(n_required_vars*sizeof(DWORD*));
+  DWORD r;
 
   /* first pass: determine size in UTF-16 */
   for (env = env_block; *env; env++) {
@@ -789,7 +790,7 @@ int make_program_env(char* env_block[], WCHAR** dst_ptr) {
     } else {
       /* copy var from env_block */
       len = wcslen(*ptr_copy)+1;
-      DWORD r = wmemcpy_s(ptr, (env_len - (ptr - dst)), *ptr_copy, len);
+      r = wmemcpy_s(ptr, (env_len - (ptr - dst)), *ptr_copy, len);
       assert(!r);
       ptr_copy++;
       if (cmp == 0) i++;
