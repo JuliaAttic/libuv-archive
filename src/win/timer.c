@@ -193,15 +193,15 @@ uint64_t uv_timer_get_repeat(const uv_timer_t* handle) {
 }
 
 
-DWORD uv_get_poll_timeout(uv_loop_t* loop) {
+DWORD uv__next_timeout(const uv_loop_t* loop) {
   uv_timer_t* timer;
   int64_t delta;
 
   /* Check if there are any running timers */
-  timer = RB_MIN(uv_timer_tree_s, &loop->timers);
+  /* Need to cast away const first, since RB_MIN doesn't know what we are */
+  /* going to do with this return value, it can't be marked const */
+  timer = RB_MIN(uv_timer_tree_s, &((uv_loop_t*)loop)->timers);
   if (timer) {
-    uv_update_time(loop);
-
     delta = timer->due - loop->time;
     if (delta >= UINT_MAX >> 1) {
       /* A timeout value of UINT_MAX means infinite, so that's no good. But */
