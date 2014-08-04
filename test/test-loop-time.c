@@ -30,10 +30,12 @@ TEST_IMPL(loop_update_time) {
   while (uv_now(uv_default_loop()) - start < 1000)
     ASSERT(0 == uv_run(uv_default_loop(), UV_RUN_NOWAIT));
 
+  MAKE_VALGRIND_HAPPY();
   return 0;
 }
 
-static void cb(uv_timer_t* handle) {
+static void cb(uv_timer_t* timer) {
+  uv_close((uv_handle_t*)&timer, NULL);
 }
 
 TEST_IMPL(loop_backend_timeout) {
@@ -56,7 +58,6 @@ TEST_IMPL(loop_backend_timeout) {
   ASSERT(!r);
   ASSERT(uv_backend_timeout(loop) == 0);
 
-  uv_close((uv_handle_t*)&timer, NULL);
-
+  MAKE_VALGRIND_HAPPY();
   return 0;
 }
