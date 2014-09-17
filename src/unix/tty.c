@@ -124,7 +124,8 @@ int uv_tty_set_mode(uv_tty_t* tty, int mode) {
 
     raw = tty->orig_termios;
     raw.c_iflag &= ~(BRKINT | ICRNL | INPCK | ISTRIP | IXON);
-    raw.c_oflag |= (ONLCR);
+    raw.c_oflag &= ~(OPOST);
+    raw.c_cflag &= ~(CSIZE | PARENB);
     raw.c_cflag |= (CS8);
     raw.c_lflag &= ~(ECHO | ICANON | IEXTEN | ISIG);
     raw.c_cc[VMIN] = 1;
