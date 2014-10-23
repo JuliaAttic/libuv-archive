@@ -1098,7 +1098,7 @@ static void uv__read(uv_stream_t* stream) {
    */
   count = 32;
 
-  is_ipc = stream->type == UV_NAMED_PIPE && ((uv_pipe_t*) stream)->flags&UV__PIPE_IPC;
+  is_ipc = stream->type == UV_NAMED_PIPE && ((uv_pipe_t*) stream)->flags & UV_PIPE_SUPPORTS_IPC;
 
   /* XXX: Maybe instead of having UV_STREAM_READING we just test if
    * tcp->read_cb is NULL or not?
@@ -1343,7 +1343,7 @@ int uv_write2(uv_write_t* req,
     return -EBADF;
 
   if (send_handle) {
-    if (stream->type != UV_NAMED_PIPE || !(((uv_pipe_t*)stream)->flags&UV__PIPE_IPC))
+    if (stream->type != UV_NAMED_PIPE || !(((uv_pipe_t*)stream)->flags & UV_PIPE_SUPPORTS_IPC))
       return -EINVAL;
 
     /* XXX We abuse uv_write2() to send over UDP handles to child processes.

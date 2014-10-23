@@ -51,9 +51,9 @@
 
 #ifndef _WIN32
 enum {
-  UV__HANDLE_INTERNAL = 0x8000,
-  UV__HANDLE_ACTIVE   = 0x4000,
-  UV__HANDLE_REF      = 0x2000,
+  UV__HANDLE_INTERNAL = 0x40000000,
+  UV__HANDLE_ACTIVE   = 0x20000000,
+  UV__HANDLE_REF      = 0x10000000,
   UV__HANDLE_CLOSING  = 0 /* no-op on unix */
 };
 #else
