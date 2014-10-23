@@ -35,7 +35,7 @@ int uv_pipe_init(uv_loop_t* loop, uv_pipe_t* handle, int flags) {
   handle->shutdown_req = NULL;
   handle->connect_req = NULL;
   handle->pipe_fname = NULL;
-    
+
   handle->flags |= ((flags&UV_PIPE_IPC)?UV__PIPE_IPC:0)|
           ((flags&UV_PIPE_SPAWN_SAFE)?UV__PIPE_SPAWN_SAFE:0)|
           ((flags&UV_PIPE_READABLE)?UV_STREAM_READABLE:0)|
@@ -117,15 +117,18 @@ int uv_pipe_link(uv_pipe_t *read, uv_pipe_t *write) {
   assert(write->flags&UV_STREAM_WRITABLE);
   assert(!(write->flags&read->flags&UV__PIPE_IPC));
 
-  flags = ((read->flags & UV_PIPE_SPAWN_SAFE)==(write->flags & UV_PIPE_SPAWN_SAFE) && 
-          (write->flags & UV_PIPE_SPAWN_SAFE) != 0) ? UV__F_NONBLOCK : 0;
+  if (!(read->flags & UV_PIPE_SPAWN_SAFE) &&
+      !(write->flags & UV_PIPE_SPAWN_SAFE))
+    flags = UV__F_NONBLOCK;
+  else
+    flags = 0;
 
   uv__make_pipe(fds,flags);
 
-  if(flags == 0) {
-    if (~(read->flags & UV_PIPE_SPAWN_SAFE))
+  if (flags == 0) {
+    if (!(read->flags & UV_PIPE_SPAWN_SAFE))
       uv__nonblock(fds[0], 1);
-    if (~(write->flags & UV_PIPE_SPAWN_SAFE))
+    if (!(write->flags & UV_PIPE_SPAWN_SAFE))
       uv__nonblock(fds[1], 1);
   }
 
@@ -145,7 +148,7 @@ int uv_pipe_link(uv_pipe_t *read, uv_pipe_t *write) {
   }
 
   return 0;
-  
+
 pipe_error:
   return -1;
 }
