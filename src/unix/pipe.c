@@ -36,8 +36,8 @@ int uv_pipe_init(uv_loop_t* loop, uv_pipe_t* handle, int flags) {
   handle->connect_req = NULL;
   handle->pipe_fname = NULL;
 
-  handle->flags |= ((flags&UV_PIPE_IPC)?UV__PIPE_IPC:0)|
-          ((flags&UV_PIPE_SPAWN_SAFE)?UV__PIPE_SPAWN_SAFE:0)|
+  handle->flags |= ((flags&UV_PIPE_IPC)?UV_PIPE_SUPPORTS_IPC:0)|
+          ((flags&UV_PIPE_SPAWN_SAFE)?UV_STREAM_BLOCKING:0)|
           ((flags&UV_PIPE_READABLE)?UV_STREAM_READABLE:0)|
           ((flags&UV_PIPE_WRITABLE)?UV_STREAM_WRITABLE:0);
   /*if (flags == 0 || flags == 1)
@@ -98,18 +98,20 @@ err_socket:
   return err;
 }
 
+
 int uv_pipe_link(uv_pipe_t *read, uv_pipe_t *write) {
   int fds[2];
   int err;
   int flags;
 
-  assert(read->loop==write->loop);
-  assert(read->flags&UV_STREAM_READABLE);
-  assert(write->flags&UV_STREAM_WRITABLE);
-  assert(!(write->flags&read->flags&UV__PIPE_IPC));
+  assert(read->loop == write->loop);
+  assert(read->flags & UV_STREAM_READABLE);
+  assert(write->flags & UV_STREAM_WRITABLE);
+  assert(!(write->flags & UV_PIPE_SUPPORTS_IPC)); /* IPC requires a socket (recvmsg/ENOTSOCK) */
+  assert(!(write->flags & UV_PIPE_SUPPORTS_IPC)); /* IPC requires a socket (recvmsg/ENOTSOCK) */
 
-  if (!(read->flags & UV_PIPE_SPAWN_SAFE) &&
-      !(write->flags & UV_PIPE_SPAWN_SAFE))
+  if (!(read->flags & UV_STREAM_BLOCKING) &&
+      !(write->flags & UV_STREAM_BLOCKING))
     flags = UV__F_NONBLOCK;
   else
     flags = 0;
@@ -117,9 +119,9 @@ int uv_pipe_link(uv_pipe_t *read, uv_pipe_t *write) {
   uv__make_pipe(fds,flags);
 
   if (flags == 0) {
-    if (!(read->flags & UV_PIPE_SPAWN_SAFE))
+    if (!(read->flags & UV_STREAM_BLOCKING))
       uv__nonblock(fds[0], 1);
-    if (!(write->flags & UV_PIPE_SPAWN_SAFE))
+    if (!(write->flags & UV_STREAM_BLOCKING))
       uv__nonblock(fds[1], 1);
   }
 
@@ -322,7 +324,7 @@ void uv_pipe_pending_instances(uv_pipe_t* handle, int count) {
 int uv_pipe_pending_count(uv_pipe_t* handle) {
   uv__stream_queued_fds_t* queued_fds;
 
-  if (!handle->flags&UV__PIPE_IPC)
+  if (!handle->flags & UV_PIPE_SUPPORTS_IPC)
     return 0;
 
   if (handle->accepted_fd == -1)
@@ -337,7 +339,7 @@ int uv_pipe_pending_count(uv_pipe_t* handle) {
 
 
 uv_handle_type uv_pipe_pending_type(uv_pipe_t* handle) {
-  if (!handle->flags&UV__PIPE_IPC)
+  if (!handle->flags & UV_PIPE_SUPPORTS_IPC)
     return UV_UNKNOWN_HANDLE;
 
   if (handle->accepted_fd == -1)
