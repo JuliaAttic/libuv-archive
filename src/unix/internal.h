@@ -143,10 +143,9 @@ enum {
   UV_TCP_NODELAY          = 0x400,  /* Disable Nagle. */
   UV_TCP_KEEPALIVE        = 0x800,  /* Turn on keep-alive. */
   UV_TCP_SINGLE_ACCEPT    = 0x1000, /* Only accept() when idle. */
-  UV_HANDLE_IPV6          = 0x10000, /* Handle is bound to a IPv6 socket. */
-  UV_UDP_PROCESSING       = 0x20000, /* Handle is running the send callback queue. */
-  UV__PIPE_IPC            = 0x40000, /* Handle is configured for IPC */
-  UV__PIPE_SPAWN_SAFE     = 0x80000  /* Handle is "safe" to pass to a spawn child (blocking mode / non-overlapped) */
+  UV_HANDLE_IPV6          = 0x2000, /* Handle is bound to a IPv6 socket. */
+  UV_UDP_PROCESSING       = 0x4000, /* Handle is running the send callback queue. */
+  UV_PIPE_SUPPORTS_IPC    = 0x8000  /* Handle is configured for IPC */
 };
 
 /* loop flags */
