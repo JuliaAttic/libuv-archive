@@ -138,7 +138,7 @@ enum {
   UV_TCP_KEEPALIVE        = 0x800,  /* Turn on keep-alive. */
   UV_TCP_SINGLE_ACCEPT    = 0x1000, /* Only accept() when idle. */
   UV_HANDLE_IPV6          = 0x2000, /* Handle is bound to a IPv6 socket. */
-  UV__PIPE_IPC            = 0x4000,
+  UV__PIPE_IPC            = 0x4000, /* Pipe handle may be used for IPC */
 };
 
 typedef enum {

@@ -116,7 +116,8 @@ int uv_pipe_link(uv_pipe_t *read, uv_pipe_t *write) {
   assert(read->loop == write->loop);
   assert(read->flags & UV_STREAM_READABLE);
   assert(write->flags & UV_STREAM_WRITABLE);
-  assert(!(write->flags & read->flags & UV__PIPE_IPC));
+  assert(!(write->flags & UV__PIPE_IPC)); /* IPC requires a socket (recvmsg/ENOTSOCK) */
+  assert(!(write->flags & UV__PIPE_IPC)); /* IPC requires a socket (recvmsg/ENOTSOCK) */
 
   if (!(read->flags & UV_STREAM_BLOCKING) &&
       !(write->flags & UV_STREAM_BLOCKING))
