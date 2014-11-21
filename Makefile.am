@@ -308,7 +308,7 @@ endif
 
 if HAVE_DTRACE
 include/uv-dtrace.h: src/unix/uv-dtrace.d
-	$(AM_V_GEN)$(DTRACE) $(DTRACEFLAGS) -h -xnolibs -s $< -o $(top_srcdir)/$@
+	$(AM_V_GEN)$(DTRACE) $(DTRACEFLAGS) -h -s $< -o $(top_srcdir)/$@
 endif
 
 if DTRACE_NEEDS_OBJECTS

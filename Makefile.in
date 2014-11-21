@@ -3949,7 +3949,7 @@ uninstall-am: uninstall-includeHEADERS uninstall-libLTLIBRARIES \
 
 
 @HAVE_DTRACE_TRUE@include/uv-dtrace.h: src/unix/uv-dtrace.d
-@HAVE_DTRACE_TRUE@	$(AM_V_GEN)$(DTRACE) $(DTRACEFLAGS) -h -xnolibs -s $< -o $(top_srcdir)/$@
+@HAVE_DTRACE_TRUE@	$(AM_V_GEN)$(DTRACE) $(DTRACEFLAGS) -h -s $< -o $(top_srcdir)/$@
 
 @DTRACE_NEEDS_OBJECTS_TRUE@src/unix/uv-dtrace.o: src/unix/uv-dtrace.d ${libuv_la_OBJECTS}
 
