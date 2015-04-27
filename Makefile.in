@@ -393,11 +393,12 @@ am__test_run_tests_SOURCES_DIST = test/blackhole-server.c \
 	test/test-tcp-unexpected-read.c \
 	test/test-tcp-write-to-half-open-connection.c \
 	test/test-tcp-writealot.c test/test-tcp-try-write.c \
-	test/test-thread.c test/test-threadpool-cancel.c \
-	test/test-threadpool.c test/test-timer-again.c \
-	test/test-timer-from-check.c test/test-timer.c test/test-tty.c \
-	test/test-udp-bind.c test/test-udp-dgram-too-big.c \
-	test/test-udp-ipv6.c test/test-udp-multicast-interface.c \
+	test/test-thread.c test/test-thread-affinity.c \
+	test/test-threadpool-cancel.c test/test-threadpool.c \
+	test/test-timer-again.c test/test-timer-from-check.c \
+	test/test-timer.c test/test-tty.c test/test-udp-bind.c \
+	test/test-udp-dgram-too-big.c test/test-udp-ipv6.c \
+	test/test-udp-multicast-interface.c \
 	test/test-udp-multicast-interface6.c \
 	test/test-udp-multicast-join.c test/test-udp-multicast-join6.c \
 	test/test-udp-multicast-ttl.c test/test-udp-open.c \
@@ -495,6 +496,7 @@ am_test_run_tests_OBJECTS =  \
 	test/test_run_tests-test-tcp-writealot.$(OBJEXT) \
 	test/test_run_tests-test-tcp-try-write.$(OBJEXT) \
 	test/test_run_tests-test-thread.$(OBJEXT) \
+	test/test_run_tests-test-thread-affinity.$(OBJEXT) \
 	test/test_run_tests-test-threadpool-cancel.$(OBJEXT) \
 	test/test_run_tests-test-threadpool.$(OBJEXT) \
 	test/test_run_tests-test-timer-again.$(OBJEXT) \
@@ -808,11 +810,12 @@ test_run_tests_SOURCES = test/blackhole-server.c test/dns-server.c \
 	test/test-tcp-unexpected-read.c \
 	test/test-tcp-write-to-half-open-connection.c \
 	test/test-tcp-writealot.c test/test-tcp-try-write.c \
-	test/test-thread.c test/test-threadpool-cancel.c \
-	test/test-threadpool.c test/test-timer-again.c \
-	test/test-timer-from-check.c test/test-timer.c test/test-tty.c \
-	test/test-udp-bind.c test/test-udp-dgram-too-big.c \
-	test/test-udp-ipv6.c test/test-udp-multicast-interface.c \
+	test/test-thread.c test/test-thread-affinity.c \
+	test/test-threadpool-cancel.c test/test-threadpool.c \
+	test/test-timer-again.c test/test-timer-from-check.c \
+	test/test-timer.c test/test-tty.c test/test-udp-bind.c \
+	test/test-udp-dgram-too-big.c test/test-udp-ipv6.c \
+	test/test-udp-multicast-interface.c \
 	test/test-udp-multicast-interface6.c \
 	test/test-udp-multicast-join.c test/test-udp-multicast-join6.c \
 	test/test-udp-multicast-ttl.c test/test-udp-open.c \
@@ -1236,6 +1239,8 @@ test/test_run_tests-test-tcp-try-write.$(OBJEXT):  \
 	test/$(am__dirstamp) test/$(DEPDIR)/$(am__dirstamp)
 test/test_run_tests-test-thread.$(OBJEXT): test/$(am__dirstamp) \
 	test/$(DEPDIR)/$(am__dirstamp)
+test/test_run_tests-test-thread-affinity.$(OBJEXT):  \
+	test/$(am__dirstamp) test/$(DEPDIR)/$(am__dirstamp)
 test/test_run_tests-test-threadpool-cancel.$(OBJEXT):  \
 	test/$(am__dirstamp) test/$(DEPDIR)/$(am__dirstamp)
 test/test_run_tests-test-threadpool.$(OBJEXT): test/$(am__dirstamp) \
@@ -1446,6 +1451,7 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@test/$(DEPDIR)/test_run_tests-test-tcp-unexpected-read.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@test/$(DEPDIR)/test_run_tests-test-tcp-write-to-half-open-connection.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@test/$(DEPDIR)/test_run_tests-test-tcp-writealot.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@test/$(DEPDIR)/test_run_tests-test-thread-affinity.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@test/$(DEPDIR)/test_run_tests-test-thread.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@test/$(DEPDIR)/test_run_tests-test-threadpool-cancel.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@test/$(DEPDIR)/test_run_tests-test-threadpool.Po@am__quote@
@@ -3135,6 +3141,20 @@ test/test_run_tests-test-thread.obj: test/test-thread.c
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='test/test-thread.c' object='test/test_run_tests-test-thread.obj' libtool=no @AMDEPBACKSLASH@
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
 @am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(test_run_tests_CFLAGS) $(CFLAGS) -c -o test/test_run_tests-test-thread.obj `if test -f 'test/test-thread.c'; then $(CYGPATH_W) 'test/test-thread.c'; else $(CYGPATH_W) '$(srcdir)/test/test-thread.c'; fi`
+
+test/test_run_tests-test-thread-affinity.o: test/test-thread-affinity.c
+@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(test_run_tests_CFLAGS) $(CFLAGS) -MT test/test_run_tests-test-thread-affinity.o -MD -MP -MF test/$(DEPDIR)/test_run_tests-test-thread-affinity.Tpo -c -o test/test_run_tests-test-thread-affinity.o `test -f 'test/test-thread-affinity.c' || echo '$(srcdir)/'`test/test-thread-affinity.c
+@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) test/$(DEPDIR)/test_run_tests-test-thread-affinity.Tpo test/$(DEPDIR)/test_run_tests-test-thread-affinity.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='test/test-thread-affinity.c' object='test/test_run_tests-test-thread-affinity.o' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(test_run_tests_CFLAGS) $(CFLAGS) -c -o test/test_run_tests-test-thread-affinity.o `test -f 'test/test-thread-affinity.c' || echo '$(srcdir)/'`test/test-thread-affinity.c
+
+test/test_run_tests-test-thread-affinity.obj: test/test-thread-affinity.c
+@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(test_run_tests_CFLAGS) $(CFLAGS) -MT test/test_run_tests-test-thread-affinity.obj -MD -MP -MF test/$(DEPDIR)/test_run_tests-test-thread-affinity.Tpo -c -o test/test_run_tests-test-thread-affinity.obj `if test -f 'test/test-thread-affinity.c'; then $(CYGPATH_W) 'test/test-thread-affinity.c'; else $(CYGPATH_W) '$(srcdir)/test/test-thread-affinity.c'; fi`
+@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) test/$(DEPDIR)/test_run_tests-test-thread-affinity.Tpo test/$(DEPDIR)/test_run_tests-test-thread-affinity.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='test/test-thread-affinity.c' object='test/test_run_tests-test-thread-affinity.obj' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(test_run_tests_CFLAGS) $(CFLAGS) -c -o test/test_run_tests-test-thread-affinity.obj `if test -f 'test/test-thread-affinity.c'; then $(CYGPATH_W) 'test/test-thread-affinity.c'; else $(CYGPATH_W) '$(srcdir)/test/test-thread-affinity.c'; fi`
 
 test/test_run_tests-test-threadpool-cancel.o: test/test-threadpool-cancel.c
 @am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(test_run_tests_CFLAGS) $(CFLAGS) -MT test/test_run_tests-test-threadpool-cancel.o -MD -MP -MF test/$(DEPDIR)/test_run_tests-test-threadpool-cancel.Tpo -c -o test/test_run_tests-test-threadpool-cancel.o `test -f 'test/test-threadpool-cancel.c' || echo '$(srcdir)/'`test/test-threadpool-cancel.c

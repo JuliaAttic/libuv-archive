@@ -41,6 +41,9 @@ extern "C" {
 # endif
 #elif __GNUC__ >= 4
 # define UV_EXTERN __attribute__((visibility("default")))
+# ifndef _GNU_SOURCE
+#  define _GNU_SOURCE
+# endif
 #else
 # define UV_EXTERN /* nothing */
 #endif
@@ -2251,6 +2254,19 @@ UV_EXTERN void* uv_key_get(uv_key_t* key);
 UV_EXTERN void uv_key_set(uv_key_t* key, void* value);
 
 /*
+ * CPU masks for thread affinity must be at least UV_CPU_SETSIZE bytes long.
+ */
+#if defined(_WIN32)
+# if defined(_WIN64)
+#  define UV_CPU_SETSIZE        64
+# else
+#  define UV_CPU_SETSIZE        32
+# endif
+#else
+# define UV_CPU_SETSIZE         CPU_SETSIZE
+#endif
+
+/*
  * Callback that is invoked to initialize thread execution.
  *
  * `arg` is the same value that was passed to uv_thread_create().
@@ -2258,6 +2274,14 @@ UV_EXTERN void uv_key_set(uv_key_t* key, void* value);
 typedef void (*uv_thread_cb)(void* arg);
 
 UV_EXTERN int uv_thread_create(uv_thread_t* tid, uv_thread_cb entry, void* arg);
+UV_EXTERN int uv_thread_setaffinity(uv_thread_t* tid,
+                                    char *cpumask,
+                                    char *oldmask,
+                                    size_t mask_size);
+UV_EXTERN int uv_thread_getaffinity(uv_thread_t* tid,
+                                    char *cpumask,
+                                    size_t mask_size);
+UV_EXTERN int uv_thread_detach(uv_thread_t* tid);
 UV_EXTERN unsigned long uv_thread_self(void);
 UV_EXTERN int uv_thread_join(uv_thread_t *tid);
 

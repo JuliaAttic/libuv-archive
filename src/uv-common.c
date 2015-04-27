@@ -295,6 +295,111 @@ int uv_thread_create(uv_thread_t *tid, void (*entry)(void *arg), void *arg) {
 }
 
 
+int uv_thread_setaffinity(uv_thread_t *tid,
+                          char *cpumask,
+                          char *oldmask,
+                          size_t mask_size) {
+#ifdef _WIN32
+  int i;
+  HANDLE hproc;
+  DWORD pam, sam, tam = 0, oldtam;
+
+  assert(mask_size >= UV_CPU_SETSIZE);
+
+  hproc = GetCurrentProcess();
+  if (!GetProcessAffinityMask(hproc, &pam, &sam))
+    return uv_translate_sys_error(GetLastError());
+
+  for (i = 0;  i < UV_CPU_SETSIZE;  i++) {
+    if (cpumask[i]) {
+      if (pam & (1 << i))
+        tam |= 1 << i;
+      else
+        return UV_EINVAL;
+    }
+  }
+
+  oldtam = SetThreadAffinityMask(*tid, tam);
+  if (!oldtam)
+    return uv_translate_sys_error(GetLastError());
+
+  if (oldmask) {
+    for (i = 0;  i < UV_CPU_SETSIZE;  i++)
+      oldmask[i] = (oldtam & (1 << i));
+  }
+
+  return 0;
+#else
+  int i, r;
+  cpu_set_t cpuset;
+
+  assert(mask_size >= UV_CPU_SETSIZE);
+
+  if (oldmask) {
+    r = uv_thread_getaffinity(tid, oldmask, mask_size);
+    if (!r)
+      return r;
+  }
+
+  CPU_ZERO(&cpuset);
+  for (i = 0;  i < UV_CPU_SETSIZE;  i++)
+    if (cpumask[i])
+        CPU_SET(i, &cpuset);
+
+  return -pthread_setaffinity_np(*tid, sizeof(cpu_set_t), &cpuset);
+#endif
+}
+
+
+int uv_thread_getaffinity(uv_thread_t *tid,
+                          char *cpumask,
+                          size_t mask_size) {
+#ifdef _WIN32
+  int i;
+  HANDLE hproc;
+  DWORD_PTR pam, sam, tam;
+
+  assert(mask_size >= UV_CPU_SETSIZE);
+
+  hproc = GetCurrentProcess();
+  if (!GetProcessAffinityMask(hproc, &pam, &sam))
+    return uv_translate_sys_error(GetLastError());
+
+  tam = SetThreadAffinityMask(*tid, pam);
+  if (!tam)
+    return uv_translate_sys_error(GetLastError());
+  SetThreadAffinityMask(*tid, tam);
+
+  for (i = 0;  i < UV_CPU_SETSIZE;  i++)
+    cpumask[i] = (tam & (1 << i));
+
+  return 0;
+#else
+  int i;
+  cpu_set_t cpuset;
+
+  assert(mask_size >= UV_CPU_SETSIZE);
+
+  CPU_ZERO(&cpuset);
+  pthread_getaffinity_np(*tid, sizeof(cpu_set_t), &cpuset);
+  for (i = 0;  i < UV_CPU_SETSIZE;  i++)
+    cpumask[i] = CPU_ISSET(i, &cpuset);
+
+  return 0;
+#endif
+}
+
+
+int uv_thread_detach(uv_thread_t *tid) {
+#ifdef _WIN32
+  CloseHandle(*tid);
+  return 0;
+#else
+  return -pthread_detach(*tid);
+#endif
+}
+
+
 unsigned long uv_thread_self(void) {
 #ifdef _WIN32
   return (unsigned long) GetCurrentThreadId();
