@@ -366,7 +366,7 @@ int uv_thread_setaffinity(uv_thread_t *tid,
 
   if (oldmask) {
     for (i = 0;  i < UV_CPU_SETSIZE;  i++)
-      oldmask[i] = (oldtam & (1 << i));
+      oldmask[i] = (oldtam >> i) & 1;
   }
 
   return 0;
@@ -412,7 +412,7 @@ int uv_thread_getaffinity(uv_thread_t *tid,
   SetThreadAffinityMask(*tid, tam);
 
   for (i = 0;  i < UV_CPU_SETSIZE;  i++)
-    cpumask[i] = (tam & (1 << i));
+    cpumask[i] = (tam >> i) & 1;
 
   return 0;
 #else
