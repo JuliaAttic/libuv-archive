@@ -1115,26 +1115,30 @@ static DWORD WINAPI uv_pipe_zero_readfile_thread_proc(void* parameter) {
     uv_mutex_unlock(m);
   }
 restart_readfile:
-  result = ReadFile(handle->handle,
-                    &uv_zero_,
-                    0,
-                    &bytes,
-                    NULL);
-  if (!result) {
-    err = GetLastError();
-    if (err == ERROR_OPERATION_ABORTED &&
-        handle->flags & UV_HANDLE_PIPE_READ_CANCELABLE) {
-      if (handle->flags & UV_HANDLE_READING) {
-        /* just a brief break to do something else */
-        handle->pipe.conn.readfile_thread = NULL;
-        /* resume after it is finished */
-        uv_mutex_lock(m);
-        handle->pipe.conn.readfile_thread = hThread;
-        uv_mutex_unlock(m);
-        goto restart_readfile;
-      } else {
-        result = 1; /* successfully stopped reading */
+  if (handle->flags & UV_HANDLE_READING) {
+    result = ReadFile(handle->handle,
+                      &uv_zero_,
+                      0,
+                      &bytes,
+                      NULL);
+    if (!result) {
+      err = GetLastError();
+      if (err == ERROR_OPERATION_ABORTED &&
+          handle->flags & UV_HANDLE_PIPE_READ_CANCELABLE) {
+        if (handle->flags & UV_HANDLE_READING) {
+          /* just a brief break to do something else */
+          handle->pipe.conn.readfile_thread = NULL;
+          /* resume after it is finished */
+          uv_mutex_lock(m);
+          handle->pipe.conn.readfile_thread = hThread;
+          uv_mutex_unlock(m);
+          goto restart_readfile;
+        } else {
+          result = 1; /* successfully stopped reading */
+        }
       }
+    } else {
+      result = 1; /* successfully aborted read before it even started */
     }
   }
   if (hThread) {
