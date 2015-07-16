@@ -2075,7 +2075,7 @@ int uv_pipe_open(uv_pipe_t* pipe, uv_file file) {
     }
   }
 
-  if (os_handle == INVALID_HANDLE_VALUE ||
+  if (os_handle2 == INVALID_HANDLE_VALUE ||
       uv_set_pipe_handle(pipe->loop, pipe, os_handle2, duplex_flags) == -1) {
     return UV_EINVAL;
   }
