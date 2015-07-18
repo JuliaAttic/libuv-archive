@@ -853,7 +853,7 @@ typedef struct uv_stdio_container_s {
 	union {
 		uv_stream_t *stream;
 		uv_file fd;
-		uv_os_handle_t os_handle;
+		uv_os_fd_t os_handle;
 	} data;
 } uv_stdio_container_t;
 

@@ -244,7 +244,7 @@ static int uv__create_stdio_pipe_pair(uv_loop_t* loop,
   if (read->flags & UV_HANDLE_PIPE_SPAWN_SAFE || write->flags & UV_HANDLE_PIPE_IPC) {
     /* server_pipe is always owned by libuv, is never SPAWN_SAFE */
     server_access |= PIPE_ACCESS_OUTBOUND;
-    if (write->flags&UV_HANDLE_READABLE);
+    if (write->flags & UV_HANDLE_READABLE)
       server_access |= PIPE_ACCESS_INBOUND;
     client_access |= GENERIC_READ | FILE_WRITE_ATTRIBUTES;
     if (read->flags&UV_HANDLE_WRITABLE)
@@ -364,10 +364,10 @@ int uv_pipe_link(uv_pipe_t* read, uv_pipe_t* write)
         err = uv__create_stdio_pipe_pair(read->loop,read,write);
         if (read->flags&UV_HANDLE_PIPE_IPC) {
             write->flags |= UV_HANDLE_PIPE_IPC_CLIENT;
-            write->ipc_pid.p_pid = &(read->ipc_pid.pid);
+            write->pipe.conn.ipc_pid.p_pid = &(read->pipe.conn.ipc_pid.pid);
         } else if (write->flags&UV_HANDLE_PIPE_IPC) {
             read->flags |= UV_HANDLE_PIPE_IPC_CLIENT;
-            read->ipc_pid.p_pid = &(write->ipc_pid.pid);
+            read->pipe.conn.ipc_pid.p_pid = &(write->pipe.conn.ipc_pid.pid);
         }
     }
 done:
