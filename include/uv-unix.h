@@ -124,7 +124,6 @@ typedef struct uv_buf_t {
 } uv_buf_t;
 
 typedef int uv_file;
-typedef int uv_os_handle_t;
 typedef int uv_os_sock_t;
 typedef int uv_os_fd_t;
 
