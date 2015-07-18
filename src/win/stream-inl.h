@@ -37,7 +37,7 @@ INLINE static void uv_stream_init(uv_loop_t* loop,
   handle->write_queue_size = 0;
   handle->activecnt = 0;
 
-  handle->shutdown_req = NULL;
+  handle->stream.conn.shutdown_req = NULL;
 }
 
 
