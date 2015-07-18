@@ -410,10 +410,11 @@ TEST_IMPL(spawn_stdout_and_stderr_to_file2) {
   ASSERT(file != -1);
 
   options.stdio = stdio;
-  options.stdio[0].flags = UV_IGNORE;
-  options.stdio[1].flags = UV_INHERIT_FD;
+  options.stdio[0].type = UV_STREAM;
+  options.stdio[0].data.stream = 0;
+  options.stdio[1].type = UV_RAW_FD;
   options.stdio[1].data.fd = file;
-  options.stdio[2].flags = UV_INHERIT_FD;
+  options.stdio[2].type = UV_RAW_FD;
   options.stdio[2].data.fd = file;
   options.stdio_count = 3;
 
@@ -487,10 +488,11 @@ TEST_IMPL(spawn_stdout_and_stderr_to_file_swap) {
   /* now we're going to swap them: the child process' stdout will be our
    * stderr_file and vice versa */
   options.stdio = stdio;
-  options.stdio[0].flags = UV_IGNORE;
-  options.stdio[1].flags = UV_INHERIT_FD;
+  options.stdio[0].type = UV_STREAM;
+  options.stdio[0].data.stream = 0;
+  options.stdio[1].type = UV_RAW_FD;
   options.stdio[1].data.fd = stderr_file;
-  options.stdio[2].flags = UV_INHERIT_FD;
+  options.stdio[2].type = UV_RAW_FD;
   options.stdio[2].data.fd = stdout_file;
   options.stdio_count = 3;
 
