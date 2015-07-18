@@ -36,6 +36,8 @@ INLINE static void uv_stream_init(uv_loop_t* loop,
   uv__handle_init(loop, (uv_handle_t*) handle, type);
   handle->write_queue_size = 0;
   handle->activecnt = 0;
+
+  handle->shutdown_req = NULL;
 }
 
 
@@ -48,8 +50,6 @@ INLINE static void uv_connection_init(uv_stream_t* handle) {
   handle->read_req.wait_handle = INVALID_HANDLE_VALUE;
   handle->read_req.type = UV_READ;
   handle->read_req.data = handle;
-
-  handle->shutdown_req = NULL;
 }
 
 
