@@ -1078,7 +1078,6 @@ static DWORD WINAPI uv_pipe_zero_readfile_thread_proc(void* parameter) {
   assert(handle->type == UV_NAMED_PIPE);
 
   if (m) {
-    uv_mutex_lock(m); /* mutex controls *setting* of readfile_thread */
     if (DuplicateHandle(GetCurrentProcess(), GetCurrentThread(),
                         GetCurrentProcess(), &hThread,
                         0, TRUE, DUPLICATE_SAME_ACCESS)) {
@@ -1211,9 +1210,13 @@ static void uv_pipe_queue_read(uv_loop_t* loop, uv_pipe_t* handle) {
   req = &handle->read_req;
 
   if (handle->flags & UV_HANDLE_NON_OVERLAPPED_PIPE) {
+    if (handle->readfile_mutex)
+        uv_mutex_lock(handle->readfile_mutex); /* mutex controls *setting* of readfile_thread */
     if (!QueueUserWorkItem(&uv_pipe_zero_readfile_thread_proc,
                            req,
                            WT_EXECUTELONGFUNCTION)) {
+      if (handle->readfile_mutex)
+          uv_mutex_unlock(handle->readfile_mutex);
       /* Make this req pending reporting an error. */
       SET_REQ_ERROR(req, GetLastError());
       goto error;
