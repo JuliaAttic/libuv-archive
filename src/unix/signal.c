@@ -162,6 +162,8 @@ static void uv__signal_handler(int signum) {
       r = write(handle->loop->signal_pipefd[1], &msg, sizeof msg);
     } while (r == -1 && errno == EINTR);
 
+    assert(errno != EWOULDBLOCK);
+
     assert(r == sizeof msg ||
            (r == -1 && (errno == EAGAIN || errno == EWOULDBLOCK)));
 
