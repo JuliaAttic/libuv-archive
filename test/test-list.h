@@ -83,6 +83,10 @@ TEST_DECLARE   (tcp6_ping_pong)
 TEST_DECLARE   (tcp6_ping_pong_vec)
 TEST_DECLARE   (pipe_ping_pong)
 TEST_DECLARE   (pipe_ping_pong_vec)
+TEST_DECLARE   (tcp_ping_pong_big)
+TEST_DECLARE   (tcp_ping_pong_vec_big)
+TEST_DECLARE   (pipe_ping_pong_big)
+TEST_DECLARE   (pipe_ping_pong_vec_big)
 TEST_DECLARE   (delayed_accept)
 TEST_DECLARE   (multiple_listen)
 #ifndef _WIN32
@@ -370,6 +374,7 @@ TEST_DECLARE   (fs_exclusive_sharing_mode)
 TEST_DECLARE   (fs_open_readonly_acl)
 TEST_DECLARE   (fs_fchmod_archive_readonly)
 #endif
+TEST_DECLARE   (big_write)
 TEST_DECLARE   (threadpool_queue_work_simple)
 TEST_DECLARE   (threadpool_queue_work_einval)
 TEST_DECLARE   (threadpool_multiple_event_loops)
@@ -542,21 +547,29 @@ TASK_LIST_START
 
   TEST_ENTRY  (tcp_ping_pong)
   TEST_HELPER (tcp_ping_pong, tcp4_echo_server)
-
   TEST_ENTRY  (tcp_ping_pong_vec)
   TEST_HELPER (tcp_ping_pong_vec, tcp4_echo_server)
-
   TEST_ENTRY  (tcp6_ping_pong)
   TEST_HELPER (tcp6_ping_pong, tcp6_echo_server)
-
   TEST_ENTRY  (tcp6_ping_pong_vec)
   TEST_HELPER (tcp6_ping_pong_vec, tcp6_echo_server)
-
   TEST_ENTRY  (pipe_ping_pong)
   TEST_HELPER (pipe_ping_pong, pipe_echo_server)
-
   TEST_ENTRY  (pipe_ping_pong_vec)
   TEST_HELPER (pipe_ping_pong_vec, pipe_echo_server)
+
+#if defined(__linux__)
+#define PING_PONG_TIMEOUT 30000
+#elif defined(_WIN32)
+#define PING_PONG_TIMEOUT 120000
+#else
+#define PING_PONG_TIMEOUT 60000
+#endif
+  TEST_ENTRY_CUSTOM (tcp_ping_pong_big, 0, 0, PING_PONG_TIMEOUT)
+  TEST_ENTRY_CUSTOM (tcp_ping_pong_vec_big, 0, 0, PING_PONG_TIMEOUT)
+  TEST_ENTRY_CUSTOM (pipe_ping_pong_big, 0, 0, PING_PONG_TIMEOUT)
+  TEST_ENTRY_CUSTOM (pipe_ping_pong_vec_big, 0, 0, PING_PONG_TIMEOUT)
+#undef PING_PONG_TIMEOUT
 
   TEST_ENTRY  (delayed_accept)
   TEST_ENTRY  (multiple_listen)
@@ -947,6 +960,7 @@ TASK_LIST_START
   TEST_ENTRY  (fs_open_readonly_acl)
   TEST_ENTRY  (fs_fchmod_archive_readonly)
 #endif
+  TEST_ENTRY_CUSTOM (big_write, 0, 0, 20000)
   TEST_ENTRY  (threadpool_queue_work_simple)
   TEST_ENTRY  (threadpool_queue_work_einval)
   TEST_ENTRY  (threadpool_multiple_event_loops)

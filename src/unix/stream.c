@@ -73,6 +73,12 @@ static void uv__stream_io(uv_loop_t* loop, uv__io_t* w, unsigned int events);
 static void uv__write_callbacks(uv_stream_t* stream);
 static size_t uv__write_req_size(uv_write_t* req);
 
+/* On some platforms, notably macOS, attempting a read or write > 2GB
+ * returns an EINVAL.
+ * On Linux, IO syscalls will transfer at most this number of bytes,
+ * so we use this limit everywhere.
+ */
+#define IO_MAX_BYTES 0x7ffff000
 
 void uv__stream_init(uv_loop_t* loop,
                      uv_stream_t* stream,
@@ -753,7 +759,7 @@ static int uv__handle_fd(uv_handle_t* handle) {
 }
 
 static void uv__write(uv_stream_t* stream) {
-  struct iovec* iov;
+  uv_buf_t* iov;
   QUEUE* q;
   uv_write_t* req;
   int iovmax;
@@ -777,7 +783,7 @@ start:
    * because Windows's WSABUF is not an iovec.
    */
   assert(sizeof(uv_buf_t) == sizeof(struct iovec));
-  iov = (struct iovec*) &(req->bufs[req->write_index]);
+  iov = req->bufs + req->write_index;
   iovcnt = req->nbufs - req->write_index;
 
   iovmax = uv__getiovmax();
@@ -813,7 +819,7 @@ start:
 
     msg.msg_name = NULL;
     msg.msg_namelen = 0;
-    msg.msg_iov = iov;
+    msg.msg_iov = (struct iovec*) iov;
     msg.msg_iovlen = iovcnt;
     msg.msg_flags = 0;
 
@@ -848,10 +854,18 @@ start:
 #endif
   } else {
     do {
+      /* On some platforms, notably macOS, the sum of iov_len must not
+       * overflow a 32-bit signed integer.
+       */
+      if (iovcnt > 1 && uv__count_bufs(iov, iovcnt) > IO_MAX_BYTES)
+        iovcnt = 1;
+
       if (iovcnt == 1) {
-        n = write(uv__stream_fd(stream), iov[0].iov_base, iov[0].iov_len);
+        n = write(uv__stream_fd(stream),
+                  iov[0].base,
+                  iov[0].len > IO_MAX_BYTES ? IO_MAX_BYTES : iov[0].len);
       } else {
-        n = writev(uv__stream_fd(stream), iov, iovcnt);
+        n = writev(uv__stream_fd(stream), (struct iovec*) iov, iovcnt);
       }
     }
 #if defined(__APPLE__)
@@ -897,7 +911,7 @@ start:
            * watcher - instead we need to try again.
            */
           goto start;
-        } else {
+        } else if (n < IO_MAX_BYTES) {
           /* Break loop and ensure the watcher is pending. */
           break;
         }
@@ -1133,6 +1147,7 @@ static int uv__stream_recv_cmsg(uv_stream_t* stream, struct msghdr* msg) {
 
 static void uv__read(uv_stream_t* stream) {
   uv_buf_t buf;
+  ssize_t buflen;
   ssize_t nread;
   struct msghdr msg;
   char cmsg_space[CMSG_SPACE(UV__CMSG_FD_SIZE)];
@@ -1168,10 +1183,12 @@ static void uv__read(uv_stream_t* stream) {
     assert(buf.base != NULL);
     assert(uv__stream_fd(stream) >= 0);
 
+    buflen = buf.len;
     if (!is_ipc) {
-      do {
-        nread = read(uv__stream_fd(stream), buf.base, buf.len);
-      }
+      if (buflen > IO_MAX_BYTES)
+        buflen = IO_MAX_BYTES;
+      do
+        nread = read(uv__stream_fd(stream), buf.base, buflen);
       while (nread < 0 && errno == EINTR);
     } else {
       /* ipc uses recvmsg */
@@ -1184,9 +1201,8 @@ static void uv__read(uv_stream_t* stream) {
       msg.msg_controllen = sizeof(cmsg_space);
       msg.msg_control = cmsg_space;
 
-      do {
+      do
         nread = uv__recvmsg(uv__stream_fd(stream), &msg, 0);
-      }
       while (nread < 0 && errno == EINTR);
     }
 
@@ -1221,7 +1237,6 @@ static void uv__read(uv_stream_t* stream) {
       return;
     } else {
       /* Successful read */
-      ssize_t buflen = buf.len;
 
       if (is_ipc) {
         err = uv__stream_recv_cmsg(stream, &msg);
