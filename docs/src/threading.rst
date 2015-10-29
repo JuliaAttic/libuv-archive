@@ -8,6 +8,13 @@ libuv provides cross-platform implementations for multiple threading and
 synchronization primitives. The API largely follows the pthreads API.
 
 
+Constants
+---------
+
+.. c:macro:: UV_CPU_SETSIZE
+
+    CPU masks for thread affinity must be at least these many bytes.
+
 Data types
 ----------
 
@@ -59,6 +66,9 @@ Threads
 
     .. versionchanged:: 1.4.1 returns a UV_E* error code on failure
 
+.. c:function:: int uv_thread_setaffinity(uv_thread_t* tid, char* cpumask, char* oldmask, size_t mask_size)
+.. c:function:: int uv_thread_getaffinity(uv_thread_t* tid, char* cpumask, size_t mask_size)
+.. c:function:: int uv_thread_detach(uv_thread_t* tid)
 .. c:function:: uv_thread_t uv_thread_self(void)
 .. c:function:: int uv_thread_join(uv_thread_t *tid)
 .. c:function:: int uv_thread_equal(const uv_thread_t* t1, const uv_thread_t* t2)
