@@ -27,11 +27,14 @@
 char cpumask[4 * UV_CPU_SETSIZE];
 
 static void check_affinity(void* arg) {
+  int r;
   char *cpumask = arg;
   uv_thread_t tid = uv_thread_self();
   uv_thread_setaffinity(&tid, cpumask, NULL, UV_CPU_SETSIZE);
-  uv_thread_setaffinity(&tid, cpumask + UV_CPU_SETSIZE, cpumask,
+  r = uv_thread_setaffinity(&tid, cpumask + UV_CPU_SETSIZE, cpumask,
                         UV_CPU_SETSIZE);
+  if (r != 0)
+    cpumask[0] = cpumask[1] = -1;
 }
 
 TEST_IMPL(thread_affinity) {

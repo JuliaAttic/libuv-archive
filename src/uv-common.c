@@ -371,6 +371,9 @@ int uv_thread_setaffinity(uv_thread_t *tid,
 
   return 0;
 #else
+#if defined(__APPLE__) || defined(_AIX)
+  return -ENOTSUP;
+#else
   int i, r;
   cpu_set_t cpuset;
 
@@ -388,6 +391,7 @@ int uv_thread_setaffinity(uv_thread_t *tid,
         CPU_SET(i, &cpuset);
 
   return -pthread_setaffinity_np(*tid, sizeof(cpu_set_t), &cpuset);
+#endif
 #endif
 }
 
@@ -416,6 +420,9 @@ int uv_thread_getaffinity(uv_thread_t *tid,
 
   return 0;
 #else
+#if defined(__APPLE__) || defined(_AIX)
+  return -ENOTSUP;
+#else
   int i;
   cpu_set_t cpuset;
 
@@ -427,6 +434,7 @@ int uv_thread_getaffinity(uv_thread_t *tid,
     cpumask[i] = CPU_ISSET(i, &cpuset);
 
   return 0;
+#endif
 #endif
 }
 
