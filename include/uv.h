@@ -1446,7 +1446,11 @@ UV_EXTERN void uv_key_set(uv_key_t* key, void* value);
 #  define UV_CPU_SETSIZE        32
 # endif
 #else
-# define UV_CPU_SETSIZE         CPU_SETSIZE
+# if (defined(__APPLE__) && defined(__MACH__)) || defined(_AIX)
+#  define UV_CPU_SETSIZE        8
+# else
+#  define UV_CPU_SETSIZE        CPU_SETSIZE
+# endif
 #endif
 
 typedef void (*uv_thread_cb)(void* arg);
