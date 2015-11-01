@@ -198,6 +198,7 @@ test_run_tests_SOURCES = test/blackhole-server.c \
                          test/test-tcp-writealot.c \
                          test/test-tcp-try-write.c \
                          test/test-thread.c \
+                         test/test-thread-affinity.c \
                          test/test-threadpool-cancel.c \
                          test/test-threadpool.c \
                          test/test-timer-again.c \
