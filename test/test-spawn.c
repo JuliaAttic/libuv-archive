@@ -1675,7 +1675,10 @@ static int mpipe(int *fds) {
 
 TEST_IMPL(spawn_inherit_streams) {
   uv_process_t child_req;
-  uv_stdio_container_t child_stdio[2];
+  uv_stdio_container_t child_stdio[2] = {
+    { .type=UV_STREAM, .data={.stream=NULL} },
+    { .type=UV_STREAM, .data={.stream=NULL} },
+  };
   int fds_stdin[2];
   int fds_stdout[2];
   uv_pipe_t pipe_stdin_child;
@@ -1692,10 +1695,10 @@ TEST_IMPL(spawn_inherit_streams) {
   init_process_options("spawn_helper9", exit_cb);
 
   loop = uv_default_loop();
-  ASSERT(uv_pipe_init(loop, &pipe_stdin_child, 0) == 0);
-  ASSERT(uv_pipe_init(loop, &pipe_stdout_child, 0) == 0);
-  ASSERT(uv_pipe_init(loop, &pipe_stdin_parent, 0) == 0);
-  ASSERT(uv_pipe_init(loop, &pipe_stdout_parent, 0) == 0);
+  ASSERT(uv_pipe_init(loop, &pipe_stdin_child, UV_PIPE_READABLE) == 0);
+  ASSERT(uv_pipe_init(loop, &pipe_stdout_child, UV_PIPE_WRITABLE) == 0);
+  ASSERT(uv_pipe_init(loop, &pipe_stdin_parent, UV_PIPE_WRITABLE) == 0);
+  ASSERT(uv_pipe_init(loop, &pipe_stdout_parent, UV_PIPE_READABLE) == 0);
 
   ASSERT(mpipe(fds_stdin) != -1);
   ASSERT(mpipe(fds_stdout) != -1);
@@ -1705,10 +1708,7 @@ TEST_IMPL(spawn_inherit_streams) {
   ASSERT(uv_pipe_open(&pipe_stdin_parent, fds_stdin[1]) == 0);
   ASSERT(uv_pipe_open(&pipe_stdout_parent, fds_stdout[0]) == 0);
 
-  child_stdio[0].flags = UV_INHERIT_STREAM;
   child_stdio[0].data.stream = (uv_stream_t *)&pipe_stdin_child;
-
-  child_stdio[1].flags = UV_INHERIT_STREAM;
   child_stdio[1].data.stream = (uv_stream_t *)&pipe_stdout_child;
 
   options.stdio = child_stdio;
