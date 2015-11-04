@@ -803,8 +803,9 @@ start:
       if (stream->write_queue_size > INT32_MAX) {
         size_t total_bytes = 0;
         int new_iov_cnt=0;
+        int i=0;
 
-        for (int i=0; i < iovcnt; i++) {
+        for (i=0; i < iovcnt; i++) {
           new_iov_cnt++;
           old_iov_len = iov[i].iov_len;
           if ((total_bytes + iov[i].iov_len) >= INT32_MAX) {
