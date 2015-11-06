@@ -245,16 +245,19 @@ static void uv__process_child_init(const uv_process_options_t* options,
                                    int stdio_count,
                                    int *pipes,
 #ifdef __linux__
-                                   volatile int* error_out,
+                                   volatile int* error_out
 #else
-                                   int error_fd,
+                                   int error_fd
 #endif
-                                   sigset_t sigoset) {
+) {
   int use_fd;
   int fd, fd2;
   int err;
+  sigset_t sigset;
 
-  sigprocmask(SIG_SETMASK, &sigoset, NULL);
+  // make sure to start the child without any mask
+  sigemptyset(&sigset);
+  sigprocmask(SIG_SETMASK, &sigset, NULL);
 
   if (options->flags & UV_PROCESS_DETACHED)
     setsid();
@@ -439,7 +442,7 @@ int uv_spawn(uv_loop_t* loop,
   }
 
   if (pid == 0) {
-    uv__process_child_init(options, stdio_count, pipes, &exec_errorno, sigoset);
+    uv__process_child_init(options, stdio_count, pipes, &exec_errorno);
     abort();
   }
 
@@ -487,7 +490,7 @@ int uv_spawn(uv_loop_t* loop,
   }
 
   if (pid == 0) {
-    uv__process_child_init(options, stdio_count, pipes, signal_pipe[1], sigoset);
+    uv__process_child_init(options, stdio_count, pipes, signal_pipe[1]);
     abort();
   }
 
