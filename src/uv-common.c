@@ -302,7 +302,7 @@ int uv_thread_setaffinity(uv_thread_t *tid,
 #ifdef _WIN32
   int i;
   HANDLE hproc;
-  DWORD pam, sam, tam = 0, oldtam;
+  DWORD_PTR pam, sam, tam = 0, oldtam;
 
   assert(mask_size >= UV_CPU_SETSIZE);
 
