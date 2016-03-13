@@ -529,7 +529,7 @@ void uv_cond_broadcast(uv_cond_t* cond) {
 }
 
 
-inline int uv_cond_wait_helper(uv_cond_t* cond, uv_mutex_t* mutex,
+inline static int uv_cond_wait_helper(uv_cond_t* cond, uv_mutex_t* mutex,
     DWORD dwMilliseconds) {
   DWORD result;
   int last_waiter;
