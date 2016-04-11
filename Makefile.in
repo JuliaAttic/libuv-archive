@@ -110,6 +110,7 @@ host_triplet = @host@
 @SUNOS_TRUE@am__append_1 = -pthread
 @WINNT_TRUE@am__append_2 = include/uv-win.h include/tree.h
 @WINNT_TRUE@am__append_3 = -I$(top_srcdir)/src/win \
+@WINNT_TRUE@               -DWIN32_LEAN_AND_MEAN \
 @WINNT_TRUE@               -D_WIN32_WINNT=0x0600
 
 @WINNT_TRUE@am__append_4 = -lws2_32 -lpsapi -liphlpapi -lshell32 -luserenv
