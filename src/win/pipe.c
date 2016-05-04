@@ -1680,7 +1680,10 @@ static void uv_pipe_read_error(uv_loop_t* loop, uv_pipe_t* handle, int error,
 
 static void uv_pipe_read_error_or_eof(uv_loop_t* loop, uv_pipe_t* handle,
     int error, uv_buf_t buf) {
-  if (error == ERROR_BROKEN_PIPE) {
+  if (error == ERROR_OPERATION_ABORTED) {
+    /* do nothing (equivalent to EINTR) */
+  }
+  else if (error == ERROR_BROKEN_PIPE) {
     uv_pipe_read_eof(loop, handle, buf);
   } else {
     uv_pipe_read_error(loop, handle, error, buf);
