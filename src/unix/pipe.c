@@ -324,7 +324,7 @@ void uv_pipe_pending_instances(uv_pipe_t* handle, int count) {
 int uv_pipe_pending_count(uv_pipe_t* handle) {
   uv__stream_queued_fds_t* queued_fds;
 
-  if (!handle->flags & UV_PIPE_SUPPORTS_IPC)
+  if (!(handle->flags & UV_PIPE_SUPPORTS_IPC))
     return 0;
 
   if (handle->accepted_fd == -1)
@@ -339,7 +339,7 @@ int uv_pipe_pending_count(uv_pipe_t* handle) {
 
 
 uv_handle_type uv_pipe_pending_type(uv_pipe_t* handle) {
-  if (!handle->flags & UV_PIPE_SUPPORTS_IPC)
+  if (!(handle->flags & UV_PIPE_SUPPORTS_IPC))
     return UV_UNKNOWN_HANDLE;
 
   if (handle->accepted_fd == -1)
