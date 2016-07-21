@@ -121,6 +121,7 @@ static void uv__chld(uv_signal_t* handle, int signum) {
       continue;
     }
 
+    process->pid = 0; // pid is no longer valid (or unique)
     process->status = status;
     QUEUE_REMOVE(&process->queue);
     QUEUE_INSERT_TAIL(&pending, &process->queue);
@@ -479,6 +480,9 @@ int uv_spawn(uv_loop_t* loop,
              const uv_process_options_t* options) {
 #if defined(__APPLE__) && (TARGET_OS_TV || TARGET_OS_WATCH)
   /* fork is marked __WATCHOS_PROHIBITED __TVOS_PROHIBITED. */
+  uv__handle_init(loop, (uv_handle_t*)process, UV_PROCESS);
+  QUEUE_INIT(&process->queue);
+  process->pid = 0;
   return -ENOSYS;
 #else
   int (*pipes)[2];
@@ -506,6 +510,7 @@ int uv_spawn(uv_loop_t* loop,
 
   uv__handle_init(loop, (uv_handle_t*)process, UV_PROCESS);
   QUEUE_INIT(&process->queue);
+  process->pid = 0;
 
   stdio_count = options->stdio_count;
   if (stdio_count < 3)
@@ -643,9 +648,9 @@ int uv_spawn(uv_loop_t* loop,
   if (exec_errorno == 0) {
     QUEUE_INSERT_TAIL(&loop->process_handles, &process->queue);
     uv__handle_start(process);
+    process->pid = pid;
   }
 
-  process->pid = pid;
   process->exit_cb = options->exit_cb;
 
   uv__free(pipes);
@@ -672,6 +677,8 @@ error:
 
 
 int uv_process_kill(uv_process_t* process, int signum) {
+  if (process->pid == 0)
+    return -ESRCH;
   return uv_kill(process->pid, signum);
 }
 
@@ -685,6 +692,7 @@ int uv_kill(int pid, int signum) {
 
 
 void uv__process_close(uv_process_t* handle) {
+  /* TODO: assert(handle->pid == 0), otherwise we are creating a zombie */
   QUEUE_REMOVE(&handle->queue);
   uv__handle_stop(handle);
   if (QUEUE_EMPTY(&handle->loop->process_handles))
