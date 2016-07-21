@@ -130,6 +130,7 @@ static void uv__chld(uv_signal_t* handle, int signum) {
       continue;
     }
 
+    process->pid = 0; // pid is no longer valid (or unique)
     process->status = status;
     QUEUE_REMOVE(&process->queue);
     QUEUE_INSERT_TAIL(&pending, &process->queue);
@@ -446,6 +447,9 @@ int uv_spawn(uv_loop_t* loop,
              const uv_process_options_t* options) {
 #if defined(__APPLE__) && (TARGET_OS_TV || TARGET_OS_WATCH)
   /* fork is marked __WATCHOS_PROHIBITED __TVOS_PROHIBITED. */
+  uv__handle_init(loop, (uv_handle_t*)process, UV_PROCESS);
+  QUEUE_INIT(&process->queue);
+  process->pid = 0;
   return UV_ENOSYS;
 #else
   int pipes_storage[8][2];
@@ -465,11 +469,14 @@ int uv_spawn(uv_loop_t* loop,
   ssize_t r;
 #endif
 
+  uv__handle_init(loop, (uv_handle_t*)process, UV_PROCESS);
+  QUEUE_INIT(&process->queue);
+  process->pid = 0;
+
   if (options->cpumask != NULL) {
 #if defined(__linux__) || defined(__FreeBSD__)
-    if (options->cpumask_size < (size_t)uv_cpumask_size()) {
+    if (options->cpumask_size < (size_t)uv_cpumask_size())
       return UV_EINVAL;
-    }
 #else
     return UV_ENOTSUP;
 #endif
@@ -481,9 +488,6 @@ int uv_spawn(uv_loop_t* loop,
                               UV_PROCESS_SETUID |
                               UV_PROCESS_WINDOWS_HIDE |
                               UV_PROCESS_WINDOWS_VERBATIM_ARGUMENTS)));
-
-  uv__handle_init(loop, (uv_handle_t*)process, UV_PROCESS);
-  QUEUE_INIT(&process->queue);
 
   stdio_count = options->stdio_count;
   if (stdio_count < 3)
@@ -624,9 +628,9 @@ int uv_spawn(uv_loop_t* loop,
   if (exec_errorno == 0) {
     QUEUE_INSERT_TAIL(&loop->process_handles, &process->queue);
     uv__handle_start(process);
+    process->pid = pid;
   }
 
-  process->pid = pid;
   process->exit_cb = options->exit_cb;
 
   if (pipes != pipes_storage)
@@ -656,6 +660,8 @@ error:
 
 
 int uv_process_kill(uv_process_t* process, int signum) {
+  if (process->pid == 0)
+    return UV_ESRCH;
   return uv_kill(process->pid, signum);
 }
 
@@ -669,6 +675,7 @@ int uv_kill(int pid, int signum) {
 
 
 void uv__process_close(uv_process_t* handle) {
+  /* TODO: assert(handle->pid == 0), otherwise we are creating a zombie */
   QUEUE_REMOVE(&handle->queue);
   uv__handle_stop(handle);
   if (QUEUE_EMPTY(&handle->loop->process_handles))

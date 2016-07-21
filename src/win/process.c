@@ -878,16 +878,21 @@ void uv_process_proc_exit(uv_loop_t* loop, uv_process_t* handle) {
     handle->wait_handle = INVALID_HANDLE_VALUE;
   }
 
-  /* Set the handle to inactive: no callbacks will be made after the exit
-   * callback. */
-  uv__handle_stop(handle);
-
   if (GetExitCodeProcess(handle->process_handle, &status)) {
     exit_code = status;
   } else {
     /* Unable to obtain the exit code. This should never happen. */
     exit_code = uv_translate_sys_error(GetLastError());
   }
+
+  /* Clean-up the process handle. */
+  CloseHandle(handle->process_handle);
+  handle->process_handle = INVALID_HANDLE_VALUE;
+  handle->pid = 0;
+
+  /* Set the handle to inactive: no callbacks will be made after the exit
+   * callback. */
+  uv__handle_stop(handle);
 
   /* Fire the exit callback. */
   if (handle->exit_cb) {
@@ -923,7 +928,8 @@ void uv_process_endgame(uv_loop_t* loop, uv_process_t* handle) {
   assert(!(handle->flags & UV_HANDLE_CLOSED));
 
   /* Clean-up the process handle. */
-  CloseHandle(handle->process_handle);
+  if (handle->process_handle != INVALID_HANDLE_VALUE)
+    CloseHandle(handle->process_handle);
 
   uv__handle_close(handle);
 }
