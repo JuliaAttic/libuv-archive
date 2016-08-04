@@ -650,8 +650,6 @@ error:
       uv__free(pipes);
   }
 
-  free(pipes);
-
   return err;
 #endif
 }
