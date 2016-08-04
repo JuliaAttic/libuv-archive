@@ -128,7 +128,7 @@ int uv_tty_init(uv_loop_t* loop, uv_tty_t* tty, int fd, int readable) {
      * slave device.
      */
     if (uv__tty_is_slave(fd) && ttyname_r(fd, path, sizeof(path)) == 0)
-      r = uv__open_cloexec(path, O_RDWR);
+      r = uv__open_cloexec(path, O_RDWR | O_NOCTTY);
     else
       r = -1;
 
