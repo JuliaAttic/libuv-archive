@@ -116,7 +116,10 @@ int uv_pipe_link(uv_pipe_t *read, uv_pipe_t *write) {
   else
     flags = 0;
 
-  uv__make_pipe(fds,flags);
+  err = uv__make_pipe(fds, flags);
+  if (err) {
+      return err;
+  }
 
   if (flags == 0) {
     if (!(read->flags & UV_STREAM_BLOCKING))
@@ -129,7 +132,7 @@ int uv_pipe_link(uv_pipe_t *read, uv_pipe_t *write) {
   if (err) {
       close(fds[0]);
       close(fds[1]);
-      goto pipe_error;
+      return err;
   }
 
   err = uv__stream_open((uv_stream_t*)write, fds[1], UV_STREAM_WRITABLE);
@@ -137,14 +140,12 @@ int uv_pipe_link(uv_pipe_t *read, uv_pipe_t *write) {
       uv_pipe_close_sync(read);
       close(fds[0]);
       close(fds[1]);
-      goto pipe_error;
+      return err;
   }
 
   return 0;
-
-pipe_error:
-  return -1;
 }
+
 
 void uv_pipe_close_sync(uv_pipe_t *pipe) {
     uv__stream_close((uv_stream_t*)pipe); /* TODO: ??? */
@@ -152,6 +153,7 @@ void uv_pipe_close_sync(uv_pipe_t *pipe) {
     pipe->flags |= UV_CLOSING;
     uv__finish_close((uv_handle_t*)pipe);
 }
+
 
 int uv_pipe_listen(uv_pipe_t* handle, int backlog, uv_connection_cb cb) {
   if (uv__stream_fd(handle) == -1)
