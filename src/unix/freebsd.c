@@ -35,6 +35,8 @@
 #include <sys/types.h>
 #include <sys/resource.h>
 #include <sys/sysctl.h>
+#include <sys/param.h>
+#include <sys/cpuset.h>
 #include <vm/vm_param.h> /* VM_LOADAVG */
 #include <time.h>
 #include <stdlib.h>
@@ -54,6 +56,10 @@
 # define CP_IDLE 3
 # define CP_INTR 4
 #endif
+
+
+typedef cpuset_t cpu_set_t;
+
 
 static char *process_title;
 
