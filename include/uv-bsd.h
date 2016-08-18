@@ -22,6 +22,9 @@
 #ifndef UV_BSD_H
 #define UV_BSD_H
 
+#include <pthread_np.h>
+typedef cpuset_t cpu_set_t;
+
 #define UV_PLATFORM_FS_EVENT_FIELDS                                           \
   uv__io_t event_watcher;                                                     \
 
