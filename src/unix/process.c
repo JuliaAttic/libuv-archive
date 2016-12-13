@@ -447,7 +447,7 @@ int uv_spawn(uv_loop_t* loop,
   uv_signal_start(&loop->child_watcher, uv__chld, SIGCHLD);
 
   sigfillset(&sigset);
-  sigprocmask(SIG_SETMASK, &sigset, &sigoset);
+  pthread_sigmask(SIG_SETMASK, &sigset, &sigoset);
 
 #ifdef __linux__
   /* Acquire write lock to prevent opening new fds in worker threads */
@@ -459,7 +459,7 @@ int uv_spawn(uv_loop_t* loop,
   if (pid == -1) {
     err = -errno;
     uv_rwlock_wrunlock(&loop->cloexec_lock);
-    sigprocmask(SIG_SETMASK, &sigoset, NULL);
+    pthread_sigmask(SIG_SETMASK, &sigoset, NULL);
     goto error;
   }
 
@@ -493,7 +493,7 @@ int uv_spawn(uv_loop_t* loop,
    */
   err = uv__make_pipe(signal_pipe, 0);
   if (err) {
-    sigprocmask(SIG_SETMASK, &sigoset, NULL);
+    pthread_sigmask(SIG_SETMASK, &sigoset, NULL);
     goto error;
   }
 
@@ -507,7 +507,7 @@ int uv_spawn(uv_loop_t* loop,
     uv_rwlock_wrunlock(&loop->cloexec_lock);
     uv__close(signal_pipe[0]);
     uv__close(signal_pipe[1]);
-    sigprocmask(SIG_SETMASK, &sigoset, NULL);
+    pthread_sigmask(SIG_SETMASK, &sigoset, NULL);
     goto error;
   }
 
@@ -552,7 +552,7 @@ int uv_spawn(uv_loop_t* loop,
   process->exit_cb = options->exit_cb;
 
   uv__free(pipes);
-  sigprocmask(SIG_SETMASK, &sigoset, NULL);
+  pthread_sigmask(SIG_SETMASK, &sigoset, NULL);
   return exec_errorno;
 
 error:
