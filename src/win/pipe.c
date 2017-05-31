@@ -1291,6 +1291,7 @@ static void uv_pipe_queue_read(uv_loop_t* loop, uv_pipe_t* handle) {
   } else {
     memset(&req->u.io.overlapped, 0, sizeof(req->u.io.overlapped));
     if (handle->flags & UV_HANDLE_EMULATE_IOCP) {
+      assert(req->event_handle);
       req->u.io.overlapped.hEvent = (HANDLE) ((uintptr_t) req->event_handle | 1);
     }
 
@@ -1350,8 +1351,16 @@ int uv_pipe_read_start(uv_pipe_t* handle,
 
   /* If reading was stopped and then started again, there could still be a read
    * request pending. */
-  if (!(handle->flags & UV_HANDLE_READ_PENDING))
+  if (!(handle->flags & UV_HANDLE_READ_PENDING)) {
+    if (handle->flags & UV_HANDLE_EMULATE_IOCP &&
+        !handle->read_req.event_handle) {
+      handle->read_req.event_handle = CreateEvent(NULL, 0, 0, NULL);
+      if (!handle->read_req.event_handle) {
+        uv_fatal_error(GetLastError(), "CreateEvent");
+      }
+    }
     uv_pipe_queue_read(loop, handle);
+  }
 
   return 0;
 }
