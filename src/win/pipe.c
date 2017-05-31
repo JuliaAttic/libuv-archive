@@ -1421,7 +1421,16 @@ static int uv_pipe_write_impl(uv_loop_t* loop,
   req->ipc_header = 0;
   req->event_handle = NULL;
   req->wait_handle = INVALID_HANDLE_VALUE;
+
+  /* Prepare the overlapped structure. */
   memset(&req->u.io.overlapped, 0, sizeof(req->u.io.overlapped));
+  if (handle->flags & (UV_HANDLE_EMULATE_IOCP | UV_HANDLE_BLOCKING_WRITES)) {
+    req->event_handle = CreateEvent(NULL, 0, 0, NULL);
+    if (!req->event_handle) {
+      uv_fatal_error(GetLastError(), "CreateEvent");
+    }
+    req->u.io.overlapped.hEvent = (HANDLE) ((uintptr_t) req->event_handle | 1);
+  }
 
   if (handle->ipc) {
     assert(!(handle->flags & UV_HANDLE_NON_OVERLAPPED_PIPE));
@@ -1563,11 +1572,6 @@ static int uv_pipe_write_impl(uv_loop_t* loop,
     handle->write_queue_size += req->u.io.queued_bytes;
   } else if (handle->flags & UV_HANDLE_BLOCKING_WRITES) {
     /* Using overlapped IO, but wait for completion before returning */
-    req->u.io.overlapped.hEvent = CreateEvent(NULL, 1, 0, NULL);
-    if (!req->u.io.overlapped.hEvent) {
-      uv_fatal_error(GetLastError(), "CreateEvent");
-    }
-
     result = WriteFile(handle->handle,
                        bufs[0].base,
                        os_maximum(bufs[0].len),
@@ -1621,10 +1625,6 @@ static int uv_pipe_write_impl(uv_loop_t* loop,
     }
 
     if (handle->flags & UV_HANDLE_EMULATE_IOCP) {
-      req->event_handle = CreateEvent(NULL, 0, 0, NULL);
-      if (!req->event_handle) {
-        uv_fatal_error(GetLastError(), "CreateEvent");
-      }
       if (!RegisterWaitForSingleObject(&req->wait_handle,
           req->u.io.overlapped.hEvent, post_completion_write_wait, (void*) req,
           INFINITE, WT_EXECUTEINWAITTHREAD)) {
