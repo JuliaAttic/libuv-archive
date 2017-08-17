@@ -115,3 +115,13 @@ API
     function is blocking.
 
     .. versionadded:: 1.16.0
+
+.. c:function:: int uv_pipe(uv_os_fd_t fds[2], int nonblock_read, int nonblock_write)
+
+    Create an pair of connected pipe handles. Data may be written to `fds[1]` and read from `fds[0]`.
+    The resulting handles can be passed to `uv_pipe_open`, used with `uv_spawn`, or for any other purpose.
+    If `nonblock` is set, the corresponding handle will be opened for `OVERLAPPED` or `FIONBIO`/`O_NONBLOCK` I/O usage.
+
+    Equivalent to :man:`pipe(2)` with the `O_CLOEXEC` flag set.
+
+    .. versionadded:: 2.0.0
