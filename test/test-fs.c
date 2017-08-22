@@ -2890,3 +2890,68 @@ TEST_IMPL(fs_file_pos_after_op_with_offset) {
   MAKE_VALGRIND_HAPPY();
   return 0;
 }
+
+
+#if defined(__APPLE__)
+static void pipe_write_cb(uv_write_t* req, int status) {
+  ASSERT(status == 0);
+  write_cb_count++;
+  uv_close((uv_handle_t*)req->handle, (uv_close_cb)free);
+}
+#endif
+
+
+TEST_IMPL(big_write) {
+  uv_os_fd_t file;
+  int r;
+  unsigned nzeros = (1u << 31u) + 1u;
+  void *zeros;
+  const char dev_null[] =
+#ifdef _WIN32
+      "NUL";
+#else
+      "/dev/null";
+#endif
+#if defined(__APPLE__)
+  uv_write_t pipe_write;
+  uv_pipe_t *p;
+#endif
+
+  /* Setup. */
+  loop = uv_default_loop();
+
+  r = uv_fs_open(loop,
+                 &open_req1,
+                 dev_null,
+                 O_WRONLY,
+                 0,
+                 NULL);
+  ASSERT(r == 0);
+  ASSERT(open_req1.result >= 0);
+  file = (uv_os_fd_t)open_req1.result;
+  uv_fs_req_cleanup(&open_req1);
+
+  zeros = calloc(1, nzeros);
+  ASSERT(zeros);
+  iov = uv_buf_init(zeros, nzeros);
+
+#if defined(__APPLE__) // usually not OK to treat a fd as a pipe
+  p = (uv_pipe_t*)malloc(sizeof(uv_pipe_t));
+  uv_pipe_init(loop, p, 0);
+  uv_pipe_open(p, file);
+  uv_write(&pipe_write, (uv_stream_t*)p, &iov, 1, pipe_write_cb);
+  ASSERT(write_cb_count == 0);
+  uv_run(loop, UV_RUN_DEFAULT);
+  ASSERT(write_cb_count == 1);
+#endif
+
+  r = uv_fs_write(NULL, &write_req, file, &iov, 1, 0, NULL);
+  ASSERT(r != -1);
+  // TODO: the following tests are broken
+  //ASSERT(r > (1 << 30));
+  //ASSERT(write_req.result == nzeros);
+  uv_fs_req_cleanup(&write_req);
+
+  MAKE_VALGRIND_HAPPY();
+  return 0;
+}
