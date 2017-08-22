@@ -344,6 +344,7 @@ TEST_DECLARE   (fs_null_req)
 #ifdef _WIN32
 TEST_DECLARE   (fs_exclusive_sharing_mode)
 #endif
+TEST_DECLARE   (big_write)
 TEST_DECLARE   (threadpool_queue_work_simple)
 TEST_DECLARE   (threadpool_queue_work_einval)
 TEST_DECLARE   (threadpool_multiple_event_loops)
@@ -506,13 +507,13 @@ TASK_LIST_START
 
   TEST_ENTRY  (tcp_alloc_cb_fail)
 
-  TEST_ENTRY  (tcp_ping_pong)
+  TEST_ENTRY_CUSTOM (tcp_ping_pong, 0, 0, 30000)
   TEST_HELPER (tcp_ping_pong, tcp4_echo_server)
 
-  TEST_ENTRY  (tcp_ping_pong_v6)
+  TEST_ENTRY_CUSTOM (tcp_ping_pong_v6, 0, 0, 30000)
   TEST_HELPER (tcp_ping_pong_v6, tcp6_echo_server)
 
-  TEST_ENTRY  (pipe_ping_pong)
+  TEST_ENTRY_CUSTOM (pipe_ping_pong, 0, 0, 30000)
   TEST_HELPER (pipe_ping_pong, pipe_echo_server)
 
   TEST_ENTRY  (delayed_accept)
@@ -883,6 +884,7 @@ TASK_LIST_START
 #ifdef _WIN32
   TEST_ENTRY  (fs_exclusive_sharing_mode)
 #endif
+  TEST_ENTRY  (big_write)
   TEST_ENTRY  (threadpool_queue_work_simple)
   TEST_ENTRY  (threadpool_queue_work_einval)
   TEST_ENTRY  (threadpool_multiple_event_loops)
