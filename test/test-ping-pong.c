@@ -175,7 +175,8 @@ static void pinger_read_cb(uv_stream_t* stream,
       pinger_write_ping(pinger);
     } else {
       pinger->state = 0;
-      uv_read_start(stream, alloc_cb, pinger_big_read_cb);
+      ASSERT(0 == uv_read_stop(stream));
+      ASSERT(0 == uv_read_start(stream, alloc_cb, pinger_big_read_cb));
       pinger_write_big_ping(pinger);
       break;
     }

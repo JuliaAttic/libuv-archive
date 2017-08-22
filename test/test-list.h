@@ -471,14 +471,20 @@ TASK_LIST_START
 
   TEST_ENTRY  (tcp_alloc_cb_fail)
 
-  TEST_ENTRY_CUSTOM (tcp_ping_pong, 0, 0, 30000)
+#ifdef _WIN32
+#define PING_PONG_TIMEOUT 90000
+#else
+#define PING_PONG_TIMEOUT 20000
+#endif
+  TEST_ENTRY_CUSTOM (tcp_ping_pong, 0, 0, PING_PONG_TIMEOUT)
   TEST_HELPER (tcp_ping_pong, tcp4_echo_server)
 
-  TEST_ENTRY_CUSTOM (tcp_ping_pong_v6, 0, 0, 30000)
+  TEST_ENTRY_CUSTOM (tcp_ping_pong_v6, 0, 0, PING_PONG_TIMEOUT)
   TEST_HELPER (tcp_ping_pong_v6, tcp6_echo_server)
 
-  TEST_ENTRY_CUSTOM (pipe_ping_pong, 0, 0, 30000)
+  TEST_ENTRY_CUSTOM (pipe_ping_pong, 0, 0, PING_PONG_TIMEOUT)
   TEST_HELPER (pipe_ping_pong, pipe_echo_server)
+#undef PING_PONG_TIMEOUT
 
   TEST_ENTRY  (delayed_accept)
   TEST_ENTRY  (multiple_listen)
