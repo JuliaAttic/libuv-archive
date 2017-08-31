@@ -16,6 +16,9 @@
 #include "uv.h"
 #include "task.h"
 
+#include <string.h> /* memset */
+#include <unistd.h> /* close */
+
 struct thread_ctx {
   uv_barrier_t barrier;
   uv_os_fd_t fd;
@@ -34,8 +37,9 @@ static void thread_main(void* arg) {
   ctx = arg;
   uv_barrier_wait(&ctx->barrier);
 
+  uv_sleep(250); /* make sure we are forcing the writer to block */
   do {
-    uv_sleep(0.25); /* make sure we are forcing the writer to block */
+    uv_sleep(1); /* throttle the reader */
     uv_errno = uv_fs_read(NULL, &req, ctx->fd, bufs, 1, -1, NULL);
     n = req.result;
     uv_fs_req_cleanup(&req);
@@ -73,10 +77,10 @@ TEST_IMPL(pipe_set_non_blocking) {
 
   ASSERT(0 == uv_pipe_init(uv_default_loop(), &pipe_handle, 0));
   ASSERT(0 == uv_pipe(fd, 0, 0));
-  ASSERT(0 == uv_pipe_open(&pipe_handle, fd[0]));
+  ASSERT(0 == uv_pipe_open(&pipe_handle, fd[1]));
   ASSERT(0 == uv_stream_set_blocking((uv_stream_t*) &pipe_handle, 1));
 
-  ctx.fd = fd[1];
+  ctx.fd = fd[0];
   ASSERT(0 == uv_barrier_init(&ctx.barrier, 2));
   ASSERT(0 == uv_thread_create(&thread, thread_main, &ctx));
   uv_barrier_wait(&ctx.barrier);
@@ -109,9 +113,9 @@ TEST_IMPL(pipe_set_non_blocking) {
 
   ASSERT(0 == uv_thread_join(&thread));
 #ifdef _WIN32
-  ASSERT(0 != CloseHandle(fd[1]));  /* fd[0] is closed by uv_close(). */
+  ASSERT(0 != CloseHandle(fd[0]));  /* fd[1] is closed by uv_close(). */
 #else
-  ASSERT(0 == close(fd[1]));  /* fd[0] is closed by uv_close(). */
+  ASSERT(0 == close(fd[0]));  /* fd[1] is closed by uv_close(). */
 #endif
   uv_barrier_destroy(&ctx.barrier);
 
