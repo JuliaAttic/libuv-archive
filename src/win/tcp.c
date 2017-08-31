@@ -1500,7 +1500,7 @@ int uv__tcp_connect(uv_connect_t* req,
 #define WSA_FLAG_NO_HANDLE_INHERIT 0x80
 #endif
 
-int uv_socketpair(int type, int protocol, uv_os_sock_t socket_vector[2]) {
+int uv_socketpair(int type, int protocol, uv_os_sock_t socket_vector[2], int flags0, int flags1) {
   SOCKET server = INVALID_SOCKET;
   SOCKET client0 = INVALID_SOCKET;
   SOCKET client1 = INVALID_SOCKET;
@@ -1511,6 +1511,13 @@ int uv_socketpair(int type, int protocol, uv_os_sock_t socket_vector[2]) {
   int namelen;
   int err;
   DWORD bytes;
+  DWORD client0_flags = WSA_FLAG_NO_HANDLE_INHERIT;
+  DWORD client1_flags = WSA_FLAG_NO_HANDLE_INHERIT;
+
+  if (flags0 & UV_NONBLOCK_PIPE)
+      client0_flags |= WSA_FLAG_OVERLAPPED;
+  if (flags1 & UV_NONBLOCK_PIPE)
+      client1_flags |= WSA_FLAG_OVERLAPPED;
 
   server = WSASocket(AF_INET, type, protocol, NULL, 0, WSA_FLAG_OVERLAPPED | WSA_FLAG_NO_HANDLE_INHERIT);
   if (server == INVALID_SOCKET)
@@ -1527,14 +1534,14 @@ int uv_socketpair(int type, int protocol, uv_os_sock_t socket_vector[2]) {
   namelen = sizeof(name);
   if (getsockname(server, (SOCKADDR*)&name, &namelen) != 0)
     goto wsaerror;
-  client0 = WSASocket(AF_INET, type, protocol, NULL, 0, WSA_FLAG_OVERLAPPED | WSA_FLAG_NO_HANDLE_INHERIT);
+  client0 = WSASocket(AF_INET, type, protocol, NULL, 0, client0_flags);
   if (client0 == INVALID_SOCKET)
     goto wsaerror;
   if (!SetHandleInformation((HANDLE)client0, HANDLE_FLAG_INHERIT, 0))
     goto error;
   if (connect(client0, (SOCKADDR*)&name, sizeof(name)) != 0)
     goto wsaerror;
-  client1 = WSASocket(AF_INET, type, protocol, NULL, 0, WSA_FLAG_OVERLAPPED | WSA_FLAG_NO_HANDLE_INHERIT);
+  client1 = WSASocket(AF_INET, type, protocol, NULL, 0, client1_flags);
   if (client1 == INVALID_SOCKET)
     goto wsaerror;
   if (!SetHandleInformation((HANDLE)client1, HANDLE_FLAG_INHERIT, 0))

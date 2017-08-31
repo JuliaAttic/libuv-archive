@@ -140,7 +140,7 @@ static int uv__process_init_stdio(uv_stdio_container_t* container, int fds[2]) {
     if (container->data.stream->type != UV_NAMED_PIPE)
       return UV_EINVAL;
     else
-      return uv_socketpair(SOCK_STREAM, 0, fds);
+      return uv_socketpair(SOCK_STREAM, 0, fds, 0, 0);
 
   case UV_INHERIT_FD:
   case UV_INHERIT_STREAM:

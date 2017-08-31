@@ -24,6 +24,7 @@
 
 #include <stdlib.h>
 #include <stdio.h>
+#include <string.h> /* strlen */
 
 static int completed_pingers = 0;
 
@@ -355,7 +356,7 @@ static void socketpair_pinger_new(void) {
 
   /* Try to make a socketpair and do NUM_PINGS ping-pongs. */
   (void)uv_default_loop(); /* ensure WSAStartup has been performed */
-  ASSERT(0 == uv_socketpair(SOCK_STREAM, 0, fds));
+  ASSERT(0 == uv_socketpair(SOCK_STREAM, 0, fds, UV_NONBLOCK_PIPE, UV_NONBLOCK_PIPE));
 #ifdef _WIN32
   ASSERT(uv_guess_handle(fds[0]) == UV_TCP);
   ASSERT(uv_guess_handle(fds[1]) == UV_TCP);

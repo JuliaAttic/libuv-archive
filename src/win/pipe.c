@@ -335,19 +335,14 @@ static int uv__create_pipe_pair(
 }
 
 
-int uv_pipe(uv_os_fd_t fds[2], int nonblock_read, int nonblock_write) {
-  unsigned int read_flags = UV_READABLE_PIPE;
-  unsigned int write_flags = UV_WRITABLE_PIPE;
+int uv_pipe(uv_os_fd_t fds[2], int read_flags, int write_flags) {
   int err;
-
-  if (nonblock_read)
-    read_flags |= UV_NONBLOCK_PIPE;
-  if (nonblock_write)
-    write_flags |= UV_NONBLOCK_PIPE;
 
   /* Make the server side the inbound (read) end, */
   /* so that both ends will have FILE_READ_ATTRIBUTES permission. */
   /* TODO: better source of local randomness? */
+  read_flags |= UV_READABLE_PIPE;
+  write_flags |= UV_WRITABLE_PIPE;
   err = uv__create_pipe_pair(&fds[0], &fds[1], read_flags, write_flags, 0, (char*)read);
   return err;
 }
