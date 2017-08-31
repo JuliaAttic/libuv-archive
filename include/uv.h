@@ -922,6 +922,12 @@ typedef enum {
    */
   UV_READABLE_PIPE  = 0x10,
   UV_WRITABLE_PIPE  = 0x20,
+  /*
+   * When UV_CREATE_PIPE is specified, specifying UV_NONBLOCK_PIPE opens the
+   * handle in non-blocking mode in the child. This may cause loss of data,
+   * if the child is not designed to handle to encounter this mode,
+   * but can also be significantly more efficient.
+   */
   UV_NONBLOCK_PIPE  = 0x40
 } uv_stdio_flags;
 
