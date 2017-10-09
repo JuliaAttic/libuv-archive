@@ -1519,7 +1519,8 @@ int uv_socketpair(int type, int protocol, uv_os_sock_t socket_vector[2], int fla
   if (flags1 & UV_NONBLOCK_PIPE)
       client1_flags |= WSA_FLAG_OVERLAPPED;
 
-  server = WSASocket(AF_INET, type, protocol, NULL, 0, WSA_FLAG_OVERLAPPED | WSA_FLAG_NO_HANDLE_INHERIT);
+  server = WSASocket(AF_INET, type, protocol, NULL, 0,
+                     WSA_FLAG_OVERLAPPED | WSA_FLAG_NO_HANDLE_INHERIT);
   if (server == INVALID_SOCKET)
     goto wsaerror;
   if (!SetHandleInformation((HANDLE)server, HANDLE_FLAG_INHERIT, 0))

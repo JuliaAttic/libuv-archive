@@ -448,7 +448,11 @@ UV_EXTERN int uv_fileno(const uv_handle_t* handle, uv_os_fd_t* fd);
 UV_EXTERN uv_buf_t uv_buf_init(char* base, unsigned int len);
 
 UV_EXTERN int uv_pipe(uv_os_fd_t fds[2], int read_flags, int write_flags);
-UV_EXTERN int uv_socketpair(int type, int protocol, uv_os_sock_t socket_vector[2], int flags0, int flags1);
+UV_EXTERN int uv_socketpair(int type,
+                            int protocol,
+                            uv_os_sock_t socket_vector[2],
+                            int flags0,
+                            int flags1);
 
 /*
  * The following functions are declared 'static inline' to ensure that they

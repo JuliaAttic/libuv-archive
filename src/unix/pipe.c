@@ -373,23 +373,20 @@ int uv_pipe(uv_os_fd_t fds[2], int read_flags, int write_flags) {
   static int no_pipe2;
   int flags = UV__O_CLOEXEC;
 
-  if (no_pipe2)
-    goto skip;
+  if (!no_pipe2) {
+    if ((read_flags & UV_NONBLOCK_PIPE) && (write_flags & UV_NONBLOCK_PIPE))
+      flags |= UV__F_NONBLOCK;
+    if (uv__pipe2(fds, flags) == 0) {
+      if (flags & UV__F_NONBLOCK)
+        return 0;
+      goto success;
+    }
 
-  if (read_flags & UV_NONBLOCK_PIPE && write_flags & UV_NONBLOCK_PIPE)
-    flags |= UV__F_NONBLOCK;
-  if (uv__pipe2(fds, flags) == 0) {
-    if (flags & UV__F_NONBLOCK)
-      return 0;
-    goto success;
+    if (errno != ENOSYS)
+      return -errno;
+
+    no_pipe2 = 1;
   }
-
-  if (errno != ENOSYS)
-    return -errno;
-
-  no_pipe2 = 1;
-
-skip:
 #endif
 
   if (pipe(fds))
@@ -398,7 +395,9 @@ skip:
   uv__cloexec(fds[0], 1);
   uv__cloexec(fds[1], 1);
 
+#if defined(__linux__)
 success:
+#endif
   if (read_flags & UV_NONBLOCK_PIPE)
     uv__nonblock(fds[0], 1);
   if (write_flags & UV_NONBLOCK_PIPE)
@@ -409,6 +408,6 @@ success:
 
 int uv__make_pipe(int fds[2], int flags) {
   return uv_pipe(fds,
-                 flags & UV__F_NONBLOCK,
-                 flags & UV__F_NONBLOCK);
+                 flags & UV_NONBLOCK_PIPE,
+                 flags & UV_NONBLOCK_PIPE);
 }

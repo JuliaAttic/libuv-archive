@@ -48,7 +48,7 @@ typedef struct {
     uv_pipe_t pipe;
   } stream;
   uv_connect_t connect_req;
-  char *PONG;
+  char* pong;
 } pinger_t;
 
 
@@ -178,8 +178,8 @@ static void pinger_read_cb(uv_stream_t* stream,
 
   /* Now we count the pongs */
   for (i = 0; i < nread; i++) {
-    ASSERT(buf->base[i] == pinger->PONG[pinger->state]);
-    pinger->state = (pinger->state + 1) % strlen(pinger->PONG);
+    ASSERT(buf->base[i] == pinger->pong[pinger->state]);
+    pinger->state = (pinger->state + 1) % strlen(pinger->pong);
 
     if (pinger->state != 0)
       continue;
@@ -267,7 +267,7 @@ static void tcp_pinger_v6_new(void) {
   ASSERT(pinger != NULL);
   pinger->state = 0;
   pinger->pongs = 0;
-  pinger->PONG = PING;
+  pinger->pong = PING;
 
   /* Try to connect to the server and do NUM_PINGS ping-pongs. */
   r = uv_tcp_init(uv_default_loop(), &pinger->stream.tcp);
@@ -297,7 +297,7 @@ static void tcp_pinger_new(void) {
   ASSERT(pinger != NULL);
   pinger->state = 0;
   pinger->pongs = 0;
-  pinger->PONG = PING;
+  pinger->pong = PING;
 
   /* Try to connect to the server and do NUM_PINGS ping-pongs. */
   r = uv_tcp_init(uv_default_loop(), &pinger->stream.tcp);
@@ -325,7 +325,7 @@ static void pipe_connect_pinger_new(void) {
   ASSERT(pinger != NULL);
   pinger->state = 0;
   pinger->pongs = 0;
-  pinger->PONG = PING;
+  pinger->pong = PING;
 
   /* Try to connect to the server and do NUM_PINGS ping-pongs. */
   r = uv_pipe_init(uv_default_loop(), &pinger->stream.pipe, 0);
@@ -352,7 +352,7 @@ static void socketpair_pinger_new(void) {
   ASSERT(pinger != NULL);
   pinger->state = 0;
   pinger->pongs = 0;
-  pinger->PONG = PONG;
+  pinger->pong = PONG;
 
   /* Try to make a socketpair and do NUM_PINGS ping-pongs. */
   (void)uv_default_loop(); /* ensure WSAStartup has been performed */
@@ -401,7 +401,7 @@ static void pipe_pinger_new(void) {
   ASSERT(pinger != NULL);
   pinger->state = 0;
   pinger->pongs = 0;
-  pinger->PONG = PING;
+  pinger->pong = PING;
   ASSERT(0 == uv_pipe_init(uv_default_loop(), &pinger->stream.pipe, 0));
   ASSERT(0 == uv_pipe_open(&pinger->stream.pipe, fds[1]));
   pinger->stream.pipe.data = pinger; /* record for close_cb */
