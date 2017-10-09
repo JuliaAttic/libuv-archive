@@ -185,7 +185,7 @@ static int maybe_run_test(int argc, char **argv) {
     kernelbase_module = GetModuleHandleA("kernelbase.dll");
     pCompareObjectHandles = (sCompareObjectHandles)
         GetProcAddress(kernelbase_module, "CompareObjectHandles");
-    ASSERT(!pCompareObjectHandles(open_fd, closed_fd));
+    ASSERT(!pCompareObjectHandles || !pCompareObjectHandles(open_fd, closed_fd));
 #else
     ASSERT(open_fd > 2);
     ASSERT(closed_fd > 2);

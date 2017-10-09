@@ -400,26 +400,23 @@ int uv_socketpair(int type, int protocol, int fds[2], int flags0, int flags1) {
   static int no_cloexec;
   int flags = type | UV__SOCK_CLOEXEC;
 
-  if (no_cloexec)
-    goto skip;
+  if (!no_cloexec){
+    if ((flags0 & UV_NONBLOCK_PIPE) && (flags1 & UV_NONBLOCK_PIPE))
+      flags |= UV__F_NONBLOCK;
+    if (socketpair(AF_UNIX, type, protocol, fds) == 0) {
+      if (flags & UV__F_NONBLOCK)
+        return 0;
+      goto success;
+    }
 
-  if (flags0 & UV_NONBLOCK_PIPE && flags1 & UV_NONBLOCK_PIPE)
-    flags |= UV__F_NONBLOCK;
-  if (socketpair(AF_UNIX, type, protocol, fds) == 0) {
-    if (flags & UV__F_NONBLOCK)
-      return 0;
-    goto success;
+    /* Retry on EINVAL, it means SOCK_CLOEXEC is not supported.
+     * Anything else is a genuine error.
+     */
+    if (errno != EINVAL)
+      return -errno;
+
+    no_cloexec = 1;
   }
-
-  /* Retry on EINVAL, it means SOCK_CLOEXEC is not supported.
-   * Anything else is a genuine error.
-   */
-  if (errno != EINVAL)
-    return -errno;
-
-  no_cloexec = 1;
-
- skip:
 #endif
 
   if (socketpair(AF_UNIX, type, protocol, fds))
@@ -428,7 +425,9 @@ int uv_socketpair(int type, int protocol, int fds[2], int flags0, int flags1) {
   uv__cloexec(fds[0], 1);
   uv__cloexec(fds[1], 1);
 
+#if defined(__linux__)
  success:
+#endif
   if (flags0 & UV_NONBLOCK_PIPE)
     uv__nonblock(fds[0], 1);
   if (flags1 & UV_NONBLOCK_PIPE)
