@@ -32,23 +32,20 @@ static int completed_pingers = 0;
 #else
 #define NUM_PINGS 1000
 #endif
-
-/* 64 bytes is enough for a pinger */
-#define BUFSIZE 10240
+#define BIG_WRITE_SIZE ((1u << 31u) + 1u)
 
 static char PING[] = "PING\n";
 static int pinger_on_connect_count;
 
 
 typedef struct {
-  int pongs;
-  int state;
+  unsigned pongs;
+  unsigned state;
   union {
     uv_tcp_t tcp;
     uv_pipe_t pipe;
   } stream;
   uv_connect_t connect_req;
-  char read_buffer[BUFSIZE];
 } pinger_t;
 
 
@@ -93,6 +90,56 @@ static void pinger_write_ping(pinger_t* pinger) {
   puts("PING");
 }
 
+static void pinger_write_big_ping(pinger_t* pinger) {
+  char *zeros;
+  uv_write_t *req;
+  uv_buf_t buf;
+
+  zeros = calloc(1, BIG_WRITE_SIZE);
+  ASSERT(zeros);
+  buf = uv_buf_init(zeros, BIG_WRITE_SIZE);
+
+  req = malloc(sizeof(*req));
+  if (uv_write(req,
+               (uv_stream_t*) &pinger->stream.tcp,
+               &buf,
+               1,
+               pinger_after_write)) {
+    FATAL("uv_write failed");
+  }
+
+  puts("BIG PING");
+}
+
+
+
+static void pinger_big_read_cb(uv_stream_t* stream,
+                               ssize_t nread,
+                               const uv_buf_t* buf) {
+  ssize_t i;
+  pinger_t* pinger;
+  pinger = (pinger_t*)stream->data;
+
+  if (nread < 0) {
+    ASSERT(nread == UV_EOF);
+
+    puts("got EOF");
+    free(buf->base);
+
+    uv_close((uv_handle_t*)(&pinger->stream.tcp), pinger_on_close);
+
+    return;
+  }
+
+  for (i = 0; i < nread; i++)
+    ASSERT(buf->base[i] == 0);
+
+  pinger->state += nread;
+  ASSERT(pinger->state <= BIG_WRITE_SIZE);
+  if (pinger->state == BIG_WRITE_SIZE)
+    uv_close((uv_handle_t*)(&pinger->stream.tcp), pinger_on_close);
+  free(buf->base);
+}
 
 static void pinger_read_cb(uv_stream_t* stream,
                            ssize_t nread,
@@ -127,7 +174,10 @@ static void pinger_read_cb(uv_stream_t* stream,
     if (pinger->pongs < NUM_PINGS) {
       pinger_write_ping(pinger);
     } else {
-      uv_close((uv_handle_t*)(&pinger->stream.tcp), pinger_on_close);
+      pinger->state = 0;
+      ASSERT(0 == uv_read_stop(stream));
+      ASSERT(0 == uv_read_start(stream, alloc_cb, pinger_big_read_cb));
+      pinger_write_big_ping(pinger);
       break;
     }
   }

@@ -82,6 +82,14 @@ static void eof_timer_destroy(uv_pipe_t* pipe);
 static void eof_timer_close_cb(uv_handle_t* handle);
 
 
+/* Beyond this maximum request size, WriteFile may fail. */
+static DWORD os_maximum(ULONG bytes) {
+  if (bytes > 0xFFFF)
+    return 0xFFFF;
+  return (DWORD)bytes;
+}
+
+
 static void uv_unique_pipe_name(char* ptr, char* name, size_t size) {
   snprintf(name, size, "\\\\?\\pipe\\uv\\%p-%lu", ptr, GetCurrentProcessId());
 }
@@ -1015,7 +1023,7 @@ static DWORD WINAPI uv_pipe_writefile_thread_proc(void* parameter) {
 
   result = WriteFile(handle->handle,
                      req->write_buffer.base,
-                     req->write_buffer.len,
+                     os_maximum(req->write_buffer.len),
                      &bytes,
                      NULL);
 
@@ -1347,7 +1355,7 @@ static int uv_pipe_write_impl(uv_loop_t* loop,
     DWORD bytes;
     result = WriteFile(handle->handle,
                        bufs[0].base,
-                       bufs[0].len,
+                       os_maximum(bufs[0].len),
                        &bytes,
                        NULL);
 
@@ -1383,7 +1391,7 @@ static int uv_pipe_write_impl(uv_loop_t* loop,
 
     result = WriteFile(handle->handle,
                        bufs[0].base,
-                       bufs[0].len,
+                       os_maximum(bufs[0].len),
                        NULL,
                        &req->u.io.overlapped);
 
@@ -1416,7 +1424,7 @@ static int uv_pipe_write_impl(uv_loop_t* loop,
   } else {
     result = WriteFile(handle->handle,
                        bufs[0].base,
-                       bufs[0].len,
+                       os_maximum(bufs[0].len),
                        NULL,
                        &req->u.io.overlapped);
 

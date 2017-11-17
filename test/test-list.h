@@ -323,6 +323,7 @@ TEST_DECLARE   (fs_invalid_filename)
 TEST_DECLARE   (fs_write_alotof_bufs)
 TEST_DECLARE   (fs_write_alotof_bufs_with_offset)
 TEST_DECLARE   (fs_file_pos_after_op_with_offset)
+TEST_DECLARE   (big_write)
 TEST_DECLARE   (threadpool_queue_work_simple)
 TEST_DECLARE   (threadpool_queue_work_einval)
 TEST_DECLARE   (threadpool_multiple_event_loops)
@@ -470,14 +471,20 @@ TASK_LIST_START
 
   TEST_ENTRY  (tcp_alloc_cb_fail)
 
-  TEST_ENTRY  (tcp_ping_pong)
+#ifdef _WIN32
+#define PING_PONG_TIMEOUT 90000
+#else
+#define PING_PONG_TIMEOUT 20000
+#endif
+  TEST_ENTRY_CUSTOM (tcp_ping_pong, 0, 0, PING_PONG_TIMEOUT)
   TEST_HELPER (tcp_ping_pong, tcp4_echo_server)
 
-  TEST_ENTRY  (tcp_ping_pong_v6)
+  TEST_ENTRY_CUSTOM (tcp_ping_pong_v6, 0, 0, PING_PONG_TIMEOUT)
   TEST_HELPER (tcp_ping_pong_v6, tcp6_echo_server)
 
-  TEST_ENTRY  (pipe_ping_pong)
+  TEST_ENTRY_CUSTOM (pipe_ping_pong, 0, 0, PING_PONG_TIMEOUT)
   TEST_HELPER (pipe_ping_pong, pipe_echo_server)
+#undef PING_PONG_TIMEOUT
 
   TEST_ENTRY  (delayed_accept)
   TEST_ENTRY  (multiple_listen)
@@ -824,6 +831,7 @@ TASK_LIST_START
   TEST_ENTRY  (fs_invalid_filename)
 #endif
   TEST_ENTRY  (fs_file_pos_after_op_with_offset)
+  TEST_ENTRY  (big_write)
   TEST_ENTRY  (threadpool_queue_work_simple)
   TEST_ENTRY  (threadpool_queue_work_einval)
 #if defined(__PPC__) || defined(__PPC64__)  /* For linux PPC and AIX */

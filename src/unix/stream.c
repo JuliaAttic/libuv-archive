@@ -743,6 +743,7 @@ static int uv__handle_fd(uv_handle_t* handle) {
   }
 }
 
+
 static void uv__write(uv_stream_t* stream) {
   struct iovec* iov;
   QUEUE* q;
@@ -839,11 +840,31 @@ start:
 #endif
   } else {
     do {
+      /* On some platforms, notably macOS, the sum of iov_len must not
+       * overflow a 32-bit signed integer.
+       */
+      size_t old_iov_len = iov[iovcnt - 1].iov_len;
+      if (stream->write_queue_size > INT32_MAX) {
+        int32_t total_bytes = 0;
+        int new_iov_cnt;
+        for (new_iov_cnt = 0; new_iov_cnt < iovcnt; new_iov_cnt++) {
+          old_iov_len = iov[new_iov_cnt].iov_len;
+          if (((int64_t)total_bytes + iov[new_iov_cnt].iov_len) >= INT32_MAX) {
+            iov[new_iov_cnt].iov_len = INT32_MAX - total_bytes;
+            break;
+          }
+          total_bytes += iov[new_iov_cnt].iov_len;
+        }
+        iovcnt = new_iov_cnt + 1;
+       }
+
       if (iovcnt == 1) {
         n = write(uv__stream_fd(stream), iov[0].iov_base, iov[0].iov_len);
       } else {
         n = writev(uv__stream_fd(stream), iov, iovcnt);
       }
+
+      iov[iovcnt - 1].iov_len = old_iov_len; /* restore original size of write in iov buf */
     }
 #if defined(__APPLE__)
     /*
@@ -1156,7 +1177,13 @@ static void uv__read(uv_stream_t* stream) {
 
     if (!is_ipc) {
       do {
-        nread = read(uv__stream_fd(stream), buf.base, buf.len);
+       /* On some platforms, notably macOS, attempting a read > 2GB
+        * returns an EINVAL.
+        */
+       size_t buflen_limited = buf.len;
+       if (buflen_limited > INT32_MAX)
+         buflen_limited = INT32_MAX;
+       nread = read(uv__stream_fd(stream), buf.base, buflen_limited);
       }
       while (nread < 0 && errno == EINTR);
     } else {

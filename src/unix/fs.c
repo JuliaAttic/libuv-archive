@@ -120,7 +120,9 @@
     }                                                                         \
     else {                                                                    \
       uv__fs_work(&req->work_req);                                            \
-      return req->result;                                                     \
+      /* Saturate return value at INT32_MAX, to avoid confusion with error return codes.    */ \
+      /* The real result value should be read from req->result whenever it might be larger. */ \
+      return (req->result < INT32_MAX ? req->result : INT32_MAX);             \
     }                                                                         \
   }                                                                           \
   while (0)
