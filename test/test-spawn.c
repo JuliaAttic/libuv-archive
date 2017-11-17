@@ -89,8 +89,6 @@ static void fail_cb(uv_process_t* process,
 static void kill_cb(uv_process_t* process,
                     int64_t exit_status,
                     int term_signal) {
-  int err;
-
   printf("exit_cb\n");
   exit_cb_called++;
 #ifdef _WIN32
@@ -111,12 +109,9 @@ static void kill_cb(uv_process_t* process,
   uv_close((uv_handle_t*)process, close_cb);
 
   /*
-   * Sending signum == 0 should check if the
-   * child process is still alive, not kill it.
    * This process should be dead.
    */
-  err = uv_kill(process->pid, 0);
-  ASSERT(err == UV_ESRCH);
+  ASSERT(process->pid == 0);
 }
 
 static void detach_failure_cb(uv_process_t* process,

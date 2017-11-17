@@ -662,7 +662,7 @@ error:
 
 int uv_process_kill(uv_process_t* process, int signum) {
   if (process->pid == 0)
-    return -ESRCH;
+    return UV_ESRCH;
   return uv_kill(process->pid, signum);
 }
 
