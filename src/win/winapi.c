@@ -36,6 +36,7 @@ sNtQuerySystemInformation pNtQuerySystemInformation;
 
 
 /* Kernel32 function pointers */
+sGetQueuedCompletionStatusEx pGetQueuedCompletionStatusEx;
 
 
 /* Powrprof.dll function pointer */
@@ -109,4 +110,8 @@ void uv_winapi_init(void) {
     pPowerRegisterSuspendResumeNotification = (sPowerRegisterSuspendResumeNotification)
       GetProcAddress(powrprof_module, "PowerRegisterSuspendResumeNotification");
   }
+
+  pGetQueuedCompletionStatusEx = (sGetQueuedCompletionStatusEx) GetProcAddress(
+      kernel32_module,
+      "GetQueuedCompletionStatusEx");
 }
