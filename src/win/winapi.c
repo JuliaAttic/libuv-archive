@@ -36,6 +36,7 @@ sNtQuerySystemInformation pNtQuerySystemInformation;
 
 
 /* Kernel32 function pointers */
+sGetQueuedCompletionStatusEx pGetQueuedCompletionStatusEx;
 
 
 /* Powrprof.dll function pointer */
@@ -120,4 +121,7 @@ void uv_winapi_init(void) {
       GetProcAddress(user32_module, "SetWinEventHook");
   }
 
+  pGetQueuedCompletionStatusEx = (sGetQueuedCompletionStatusEx) GetProcAddress(
+      kernel32_module,
+      "GetQueuedCompletionStatusEx");
 }
