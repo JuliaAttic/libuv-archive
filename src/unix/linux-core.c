@@ -242,7 +242,7 @@ void uv__io_poll(uv_loop_t* loop, int timeout) {
      */
     if (uv__epoll_ctl(loop->backend_fd, op, w->fd, &e)) {
       if (errno == EPERM) { /* fd is probably a file, which is always ready */
-        w->cb(loop, w, UV__EPOLLIN | UV__EPOLLOUT);
+        w->cb(loop, w, POLLIN | POLLOUT);
         timeout = 0; /* fd is now likely closed and needs to return to the uv_run loop for cleanup */
       } else if (errno != EEXIST) {
         abort();
