@@ -1511,6 +1511,7 @@ int uv_socketpair(int type, int protocol, uv_os_sock_t socket_vector[2], int fla
   int namelen;
   int err;
   DWORD bytes;
+  DWORD flags;
   DWORD client0_flags = WSA_FLAG_NO_HANDLE_INHERIT;
   DWORD client1_flags = WSA_FLAG_NO_HANDLE_INHERIT;
 
@@ -1563,7 +1564,7 @@ int uv_socketpair(int type, int protocol, uv_os_sock_t socket_vector[2], int fla
     err = WSAGetLastError();
     if (err == ERROR_IO_PENDING) {
       /* Result should complete immediately, since we already called connect */
-      if (!GetOverlappedResult(client1, &overlap, &bytes, FALSE))
+      if (!WSAGetOverlappedResult(client1, &overlap, &bytes, FALSE, &flags))
         goto error;
     }
     else {
