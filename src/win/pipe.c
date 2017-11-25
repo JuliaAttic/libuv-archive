@@ -84,8 +84,6 @@ static void eof_timer_close_cb(uv_handle_t* handle);
 
 /* Beyond this maximum request size, WriteFile may fail. */
 static DWORD os_maximum(ULONG bytes) {
-  if (bytes > 0xFFFF)
-    return 0xFFFF;
   return (DWORD)bytes;
 }
 
