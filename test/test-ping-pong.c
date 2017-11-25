@@ -357,13 +357,9 @@ static void socketpair_pinger_new(void) {
   /* Try to make a socketpair and do NUM_PINGS ping-pongs. */
   (void)uv_default_loop(); /* ensure WSAStartup has been performed */
   ASSERT(0 == uv_socketpair(SOCK_STREAM, 0, fds, UV_NONBLOCK_PIPE, UV_NONBLOCK_PIPE));
-#ifdef _WIN32
-  ASSERT(uv_guess_handle(fds[0]) == UV_TCP);
-  ASSERT(uv_guess_handle(fds[1]) == UV_TCP);
-#else
-  ASSERT(uv_guess_handle(fds[0]) == UV_NAMED_PIPE);
-  ASSERT(uv_guess_handle(fds[1]) == UV_NAMED_PIPE);
-#endif
+  /* On Windows, this is actually a UV_TCP, but libuv doesn't detect that. */
+  ASSERT(uv_guess_handle((uv_os_fd_t)fds[0]) == UV_NAMED_PIPE);
+  ASSERT(uv_guess_handle((uv_os_fd_t)fds[1]) == UV_NAMED_PIPE);
 
   ASSERT(0 == uv_tcp_init(uv_default_loop(), &pinger->stream.tcp));
   pinger->stream.pipe.data = pinger;

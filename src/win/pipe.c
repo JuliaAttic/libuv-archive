@@ -340,7 +340,7 @@ int uv_pipe(uv_os_fd_t fds[2], int read_flags, int write_flags) {
   /* TODO: better source of local randomness? */
   read_flags |= UV_READABLE_PIPE;
   write_flags |= UV_WRITABLE_PIPE;
-  err = uv__create_pipe_pair(&fds[0], &fds[1], read_flags, write_flags, 0, (char*)read);
+  err = uv__create_pipe_pair(&fds[0], &fds[1], read_flags, write_flags, 0, (char*)&fds);
   return err;
 }
 
