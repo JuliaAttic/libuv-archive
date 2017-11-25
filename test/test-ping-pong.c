@@ -33,7 +33,17 @@ static int completed_pingers = 0;
 #else
 #define NUM_PINGS 1000
 #endif
+#ifdef _WIN32
+/* Emperically, NT can't handle a larger value. */
+/* On i686, max size for calloc call is 0x7ffdefff */
+/* (according to stderr message, although empirically false), */
+/* limiting our ability to test larger sizes. */
+/* On x86-64, the kernel fails with 0xffffffff800705aa (Insufficient resources?), */
+/* when passing a larger value to WriteFile(Ex). */
+#define BIG_WRITE_SIZE ((1u << 30u) + 1u)
+#else
 #define BIG_WRITE_SIZE ((1u << 31u) + 1u)
+#endif
 
 static char PING[] = "PING\n";
 static char PONG[] = "PONG\n";
@@ -53,8 +63,10 @@ typedef struct {
 
 
 static void alloc_cb(uv_handle_t* handle, size_t size, uv_buf_t* buf) {
-  buf->base = malloc(size);
-  buf->len = size;
+  do {
+    buf->base = malloc(size);
+    buf->len = size;
+  } while (buf->base == NULL && (size /= 2));
 }
 
 
@@ -82,6 +94,7 @@ static void ponger_on_close(uv_handle_t* handle) {
 
 static void pinger_after_write(uv_write_t *req, int status) {
   ASSERT(status == 0);
+  free(req->data);
   free(req);
 }
 
@@ -93,6 +106,7 @@ static void pinger_write_ping(pinger_t* pinger) {
   buf = uv_buf_init(PING, sizeof(PING) - 1);
 
   req = malloc(sizeof(*req));
+  req->data = NULL;
   if (uv_write(req,
                (uv_stream_t*) &pinger->stream.tcp,
                &buf,
@@ -114,6 +128,7 @@ static void pinger_write_big_ping(pinger_t* pinger) {
   buf = uv_buf_init(zeros, BIG_WRITE_SIZE);
 
   req = malloc(sizeof(*req));
+  req->data = zeros;
   if (uv_write(req,
                (uv_stream_t*) &pinger->stream.tcp,
                &buf,
@@ -228,6 +243,7 @@ static void ponger_read_cb(uv_stream_t* stream,
 
   writebuf = uv_buf_init(buf->base, nread);
   req = malloc(sizeof(*req));
+  req->data = buf->base;
   if (uv_write(req,
                stream,
                &writebuf,
@@ -410,12 +426,12 @@ static void pipe_pinger_new(void) {
 
 
 TEST_IMPL(tcp_ping_pong) {
-  socketpair_pinger_new();
+  tcp_pinger_new();
   uv_run(uv_default_loop(), UV_RUN_DEFAULT);
 
   ASSERT(completed_pingers == 1);
 
-  tcp_pinger_new();
+  socketpair_pinger_new();
   uv_run(uv_default_loop(), UV_RUN_DEFAULT);
 
   ASSERT(completed_pingers == 2);
