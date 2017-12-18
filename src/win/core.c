@@ -216,11 +216,6 @@ uv_os_fd_t uv_backend_fd(const uv_loop_t* loop) {
 }
 
 
-int uv_loop_fork(uv_loop_t* loop) {
-  return UV_ENOSYS;
-}
-
-
 int uv_backend_timeout(const uv_loop_t* loop) {
   if (loop->stop_flag != 0)
     return 0;

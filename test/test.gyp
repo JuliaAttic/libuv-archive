@@ -30,7 +30,6 @@
         'test-emfile.c',
         'test-env-vars.c',
         'test-fail-always.c',
-        'test-fork.c',
         'test-fs.c',
         'test-fs-copyfile.c',
         'test-fs-event.c',
