@@ -1565,7 +1565,7 @@ int uv_socketpair(int type, int protocol, uv_os_sock_t socket_vector[2], int fla
     if (err == ERROR_IO_PENDING) {
       /* Result should complete immediately, since we already called connect */
       if (!WSAGetOverlappedResult(client1, &overlap, &bytes, FALSE, &flags))
-        goto error;
+        goto wsaerror;
     }
     else {
       goto cleanup;
