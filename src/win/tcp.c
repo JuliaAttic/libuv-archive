@@ -1566,9 +1566,15 @@ int uv_socketpair(int type, int protocol, uv_os_sock_t socket_vector[2], int fla
                      &overlap)) {
     err = WSAGetLastError();
     if (err == ERROR_IO_PENDING) {
-      /* Result should complete immediately, since we already called connect */
-      if (!WSAGetOverlappedResult(client1, &overlap, &bytes, FALSE, &flags))
-        goto wsaerror;
+      /* Result should complete immediately, since we already called connect,
+       * but emperically, we sometimes have to poll the kernel a couple times
+       * until it notices that. */
+      while (!WSAGetOverlappedResult(client1, &overlap, &bytes, FALSE, &flags)) {
+        err = WSAGetLastError();
+        if (err != WSA_IO_INCOMPLETE)
+          goto cleanup;
+        SwitchToThread();
+      }
     }
     else {
       goto cleanup;
@@ -1602,5 +1608,6 @@ int uv_socketpair(int type, int protocol, uv_os_sock_t socket_vector[2], int fla
     if (client1 != INVALID_SOCKET)
       closesocket(client1);
 
-    return err;
+    assert(err);
+    return uv_translate_sys_error(err);
 }
