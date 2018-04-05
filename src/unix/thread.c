@@ -82,22 +82,7 @@ int uv_thread_create(uv_thread_t *tid, void (*entry)(void *arg), void *arg) {
 }
 
 
-#if defined(__APPLE__) && defined(__MACH__) || defined(_AIX)
-int uv_thread_setaffinity(uv_thread_t* tid,
-                          char* cpumask,
-                          char* oldmask,
-                          size_t mask_size) {
-  return -ENOTSUP;
-}
-
-
-int uv_thread_getaffinity(uv_thread_t* tid,
-                          char* cpumask,
-                          size_t mask_size) {
-  return -ENOTSUP;
-}
-
-#else /* !((defined(__APPLE__) && defined(__MACH__)) || defined(_AIX)) */
+#if defined(__linux__) || defined(__FreeBSD__)
 
 int uv_thread_setaffinity(uv_thread_t* tid,
                           char* cpumask,
@@ -143,7 +128,24 @@ int uv_thread_getaffinity(uv_thread_t* tid,
 
   return 0;
 }
-#endif /* (defined(__APPLE__) && defined(__MACH__)) || defined(_AIX) */
+
+#else
+
+int uv_thread_setaffinity(uv_thread_t* tid,
+                          char* cpumask,
+                          char* oldmask,
+                          size_t mask_size) {
+  return -ENOTSUP;
+}
+
+
+int uv_thread_getaffinity(uv_thread_t* tid,
+                          char* cpumask,
+                          size_t mask_size) {
+  return -ENOTSUP;
+}
+
+#endif /* defined(__linux__) || defined(__FreeBSD__) */
 
 int uv_thread_detach(uv_thread_t* tid) {
   return -pthread_detach(*tid);

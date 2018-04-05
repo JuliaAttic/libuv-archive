@@ -1321,9 +1321,9 @@ int uv_os_gethostname(char* buffer, size_t* size) {
 
 
 int uv_cpumask_size(void) {
-#if defined(__APPLE__) && defined(__MACH__) || defined(_AIX)
-  return -ENOTSUP;
-#else /* !((defined(__APPLE__) && defined(__MACH__)) || defined(_AIX)) */
+#if defined(__linux__) || defined(__FreeBSD__)
   return CPU_SETSIZE;
+#else
+  return -ENOTSUP;
 #endif
 }
