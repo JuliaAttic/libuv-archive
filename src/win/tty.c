@@ -2231,20 +2231,7 @@ int uv_tty_reset_mode(void) {
  * 10 version 1511, build number 10.0.10586.
  */
 static void uv__determine_vterm_state(HANDLE handle) {
-  DWORD dwMode = 0;
-
-  if (!GetConsoleMode(handle, &dwMode)) {
-    uv__vterm_state = UV_UNSUPPORTED;
-    return;
-  }
-
-  dwMode |= ENABLE_VIRTUAL_TERMINAL_PROCESSING;
-  if (!SetConsoleMode(handle, dwMode)) {
-    uv__vterm_state = UV_UNSUPPORTED;
-    return;
-  }
-
-  uv__vterm_state = UV_SUPPORTED;
+  uv__vterm_state = UV_UNSUPPORTED;
 }
 
 static DWORD WINAPI uv__tty_console_resize_message_loop_thread(void* param) {
