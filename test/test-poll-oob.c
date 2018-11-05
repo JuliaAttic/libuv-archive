@@ -202,4 +202,9 @@ TEST_IMPL(poll_oob) {
   MAKE_VALGRIND_HAPPY();
   return 0;
 }
+
+#else
+
+extern int this_file_has_no_tests; /* ISO C forbids an empty translation unit. */
+
 #endif

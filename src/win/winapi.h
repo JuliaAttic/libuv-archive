@@ -4109,6 +4109,7 @@
 #endif
 
 /* from winternl.h */
+#define __UNICODE_STRING_DEFINED
 typedef struct _UNICODE_STRING {
   USHORT Length;
   USHORT MaximumLength;

@@ -98,6 +98,7 @@
             '_WIN32_WINNT=0x0600',
             '_GNU_SOURCE',
           ],
+          'cflags': [ '-Wno-long-long' ],
           'sources': [
             'include/uv/win.h',
             'src/win/async.c',

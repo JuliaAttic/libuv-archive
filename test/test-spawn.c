@@ -1201,7 +1201,7 @@ TEST_IMPL(argument_escaping) {
 int make_program_env(char** env_block, WCHAR** dst_ptr);
 
 TEST_IMPL(environment_creation) {
-  int i;
+  size_t i;
   char* environment[] = {
     "FOO=BAR",
     "SYSTEM=ROOT", /* substring of a supplied var name */
