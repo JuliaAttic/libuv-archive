@@ -38,6 +38,11 @@ static uv_tcp_t client_handle;
 
 
 TEST_IMPL(emfile) {
+  struct sockaddr_in addr;
+  struct rlimit limits;
+  uv_connect_t connect_req;
+  uv_loop_t* loop;
+  int first_fd;
 #if defined(_AIX) || defined(__MVS__)
   /* On AIX, if a 'accept' call fails ECONNRESET is set on the socket
    * which causes uv__emfile_trick to not work as intended and this test
@@ -45,11 +50,6 @@ TEST_IMPL(emfile) {
    */
   RETURN_SKIP("uv__emfile_trick does not work on this OS");
 #endif
-  struct sockaddr_in addr;
-  struct rlimit limits;
-  uv_connect_t connect_req;
-  uv_loop_t* loop;
-  int first_fd;
 
   /* Lower the file descriptor limit and use up all fds save one. */
   limits.rlim_cur = limits.rlim_max = maxfd + 1;

@@ -2457,9 +2457,6 @@ TEST_IMPL(fs_stat_root) {
 
 
 TEST_IMPL(fs_futime) {
-#if defined(_AIX) && !defined(_AIX71)
-  RETURN_SKIP("futime is not implemented for AIX versions below 7.1");
-#else
   utime_check_t checkme;
   const char path[] = "test_file";
   double atime;
@@ -2467,6 +2464,9 @@ TEST_IMPL(fs_futime) {
   uv_os_fd_t file;
   uv_fs_t req;
   int r;
+#if defined(_AIX) && !defined(_AIX71)
+  RETURN_SKIP("futime is not implemented for AIX versions below 7.1");
+#endif
 
   /* Setup. */
   loop = uv_default_loop();
@@ -2534,7 +2534,6 @@ TEST_IMPL(fs_futime) {
 
   MAKE_VALGRIND_HAPPY();
   return 0;
-#endif
 }
 
 

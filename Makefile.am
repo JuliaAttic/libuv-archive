@@ -52,7 +52,6 @@ uvinclude_HEADERS += include/uv/win.h include/uv/tree.h
 AM_CPPFLAGS += -I$(top_srcdir)/src/win \
                -DWIN32_LEAN_AND_MEAN \
                -D_WIN32_WINNT=0x0600
-libuv_la_CFLAGS += -Wno-long-long
 libuv_la_SOURCES += src/win/async.c \
                     src/win/core.c \
                     src/win/detect-wakeup.c \
