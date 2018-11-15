@@ -25,6 +25,10 @@
 #include <process.h> /* _beginthreadex */
 #include <errno.h> /* _beginthreadex errors */
 
+#if defined(__i386__) && !defined(__x86_64) && defined(__SSE2__) && defined(__MINGW64_VERSION_MAJOR)
+#include <intrin.h> /* MemoryBarrier expands to __mm_mfence in this case, which may require this header. */
+#endif
+
 #include "uv.h"
 #include "internal.h"
 
