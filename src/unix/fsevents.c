@@ -287,17 +287,12 @@ static void uv__fsevents_event_cb(ConstFSEventStreamRef streamRef,
 
       memset(event, 0, sizeof(*event));
       memcpy(event->path, path, len + 1);
-      event->events = UV_RENAME;
 
-      if (0 != (flags & kFSEventsModified) &&
-          0 != (flags & kFSEventStreamEventFlagItemIsDir) &&
-          0 == (flags & kFSEventStreamEventFlagItemRenamed)) {
+      if ((eventFlags[i] & kFSEventsModified) != 0 &&
+          (eventFlags[i] & kFSEventsRenamed) == 0)
         event->events = UV_CHANGE;
-      }
-      if (0 == (flags & kFSEventStreamEventFlagItemIsDir) &&
-          0 == (flags & kFSEventStreamEventFlagItemRenamed)) {
-        event->events = UV_CHANGE;
-      }
+      else
+        event->events = UV_RENAME;
 
       QUEUE_INSERT_TAIL(&head, &event->member);
     }
